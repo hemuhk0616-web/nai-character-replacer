@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.6.0
+// @version      0.7.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @match        https://novelai.net/*
 // @match        https://*.novelai.net/*
@@ -57,17 +57,24 @@ function panel(bundle){
   const main=/prompt|プロンプト|프롬프트|description/i;
   const negative=candidates.filter(e=>neg.test(labelText(e)));
   const positive=candidates.filter(e=>main.test(labelText(e))&&!neg.test(labelText(e))&&!/character|キャラクター|캐릭터/i.test(labelText(e)));
+  // NovelAI mobile editor is often an unlabeled contenteditable DIV.
+  // Only infer the main field when its own or nearby placeholder explicitly
+  // says "Tap to add a prompt". Never infer UC from DOM order.
+  const hint=/tap to add a prompt|add a prompt|프롬프트를 입력|プロンプトを入力/i;
+  const mainHints=candidates.filter(e=>{
+   const own=[e.getAttribute('data-placeholder'),e.getAttribute('aria-placeholder'),e.getAttribute('placeholder')].filter(Boolean).join(' ');
+   if(hint.test(own))return true;
+   const parent=e.parentElement;
+   if(!parent)return false;
+   const near=[...parent.querySelectorAll('[data-placeholder],[aria-placeholder],[placeholder]')].map(n=>[n.getAttribute('data-placeholder'),n.getAttribute('aria-placeholder'),n.getAttribute('placeholder')].filter(Boolean).join(' '));
+   return near.some(t=>hint.test(t));
+  });
+  const safeMain=positive.length===1?positive[0]:(mainHints.length===1?mainHints[0]:null);
   const log=[];
-  if(positive.length===1){setReactValue(positive[0],bundle.description||'');log.push('메인 입력 시도')}else log.push('메인 입력칸 미확인 ('+positive.length+'개 후보)');
+  if(safeMain){setReactValue(safeMain,bundle.description||'');log.push('메인 입력 시도 (안내 문구 기반)')}else log.push('메인 입력칸 미확인 ('+positive.length+'개 이름 후보, '+mainHints.length+'개 안내 문구 후보)');
   if(negative.length===1){setReactValue(negative[0],bundle.negativePrompt||'');log.push('UC 입력 시도')}else log.push('UC 입력칸 미확인 ('+negative.length+'개 후보)');
   const chars=(bundle.characterPrompts||[]).filter(x=>x.prompt);
-  if(chars.length){
-   const charFields=candidates.filter(e=>/character|キャラクター|캐릭터/i.test(labelText(e))&&!neg.test(labelText(e)));
-   if(charFields.length===chars.length){
-    chars.forEach((x,i)=>setReactValue(charFields[i],x.prompt));
-    log.push('캐릭터 슬롯 '+chars.length+'개 입력 시도 (순서 확인 필요)');
-   }else log.push('캐릭터 슬롯 미확인: '+chars.length+'개 전송 / '+charFields.length+'개 후보');
-  }
+  if(chars.length)log.push('캐릭터 '+chars.length+'개: 슬롯 미확인, 자동 입력 보류');
   await delay(300);
   const fieldInfo=candidates.map((e,i)=>`${i+1}. ${e.tagName.toLowerCase()} ${labelText(e).slice(0,85)||'(이름 없음)'} [${String(e.value??e.textContent??'').length}자]`);
   report.textContent=log.join('\n')+'\n\n발견된 입력칸 '+candidates.length+'개:\n'+fieldInfo.join('\n')+'\n\n잘못된 칸에 입력되지 않았는지 확인해 줘.';
