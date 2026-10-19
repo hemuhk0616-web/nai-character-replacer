@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.8.0
+// @version      0.9.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @match        https://novelai.net/*
 // @match        https://*.novelai.net/*
@@ -28,6 +28,22 @@ function panel(bundle){
  const title=document.createElement('h3');title.textContent='NAI V5 프롬프트 전송 · 실험판';root.append(title);
  const hint=document.createElement('p');hint.textContent='자동 입력은 정확히 식별된 칸에만 실행돼. 실패하면 입력칸 직접 지정 또는 복사를 사용해 줘. 생성은 직접 눌러.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
+ const version=document.createElement('div');version.textContent='Bridge v0.9.0 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ function inspectEditors(){
+  document.querySelectorAll('.nai-bridge-debug-pin').forEach(e=>e.remove());
+  const els=fields().filter(e=>!root.contains(e));
+  const info=[];
+  els.forEach((el,i)=>{
+   const rect=el.getBoundingClientRect();
+   const pin=document.createElement('span');pin.className='nai-bridge-debug-pin';pin.textContent=String(i+1);
+   pin.style.cssText='position:fixed;z-index:2147483645;left:'+Math.max(0,Math.min(innerWidth-30,rect.left))+'px;top:'+Math.max(0,Math.min(innerHeight-30,rect.top))+'px;background:#ffcc33;color:#111;border:2px solid #111;border-radius:50%;width:26px;height:26px;text-align:center;line-height:22px;font:bold 15px system-ui;pointer-events:none';
+   document.body.append(pin);
+   const parent=el.parentElement;
+   info.push((i+1)+'. '+el.tagName.toLowerCase()+' role='+String(el.getAttribute('role'))+' editable='+String(el.getAttribute('contenteditable'))+' class='+String(el.className).slice(0,55)+' 주변='+String(parent?.textContent||'').slice(0,65));
+  });
+  report.textContent='입력창 위치 표시 완료 ('+els.length+'개)\n'+info.join('\n')+'\n\n노란 숫자가 메인 입력창과 UC 입력창 어디에 있는지 화면을 캡처해 줘.';
+ }
+
  function btn(name,fn){const b=document.createElement('button');b.textContent=name;b.style.cssText='padding:9px;margin:3px;background:#5276d8;color:white;border:0;border-radius:6px';b.onclick=fn;root.append(b)}
  function selectTarget(kind,value){
   report.textContent=kind+' 입력칸을 NovelAI 화면에서 직접 터치해 줘. 선택한 칸에만 입력해.';
@@ -94,6 +110,7 @@ function panel(bundle){
   const fieldInfo=candidates.map((e,i)=>`${i+1}. ${e.tagName.toLowerCase()} ${labelText(e).slice(0,85)||'(이름 없음)'} / 영역: ${nearestHeading(e).slice(0,55)||'(없음)'} [${String(e.value??e.textContent??'').length}자]`);
   report.textContent=log.join('\n')+'\n\n발견된 입력칸 '+candidates.length+'개:\n'+fieldInfo.join('\n')+'\n\n잘못된 칸에 입력되지 않았는지 확인해 줘.';
  }
+ btn('입력창 번호 표시 · 진단',inspectEditors);
  btn('메인 자동 입력 (확실한 칸만)',()=>{
   const el=strictField('메인');
   if(!el){report.textContent='메인 입력칸을 확실히 식별하지 못했어. 아래 직접 지정 버튼을 사용해 줘.';return}
@@ -133,7 +150,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='position:fixed;bottom:12px;left:12px;z-index:2147483646;background:#263a55;color:#fff;border:1px solid #8ab2fa;border-radius:7px;padding:7px;font:12px system-ui';
-  mark.onclick=()=>alert('NAI Bridge v0.6.0\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v0.9.0\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.textContent='NAI Bridge · '+(pending?'수신됨':status.startsWith('전송 데이터 없음')?'대기 중':'확인 필요');
