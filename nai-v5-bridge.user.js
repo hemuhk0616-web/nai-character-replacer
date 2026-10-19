@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.2.0
+// @version      0.3.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @match        https://novelai.net/*
 // @match        https://*.novelai.net/*
 // @grant        none
-// @run-at       document-idle
+// @run-at       document-start
 // ==/UserScript==
 (function(){
 'use strict';
@@ -68,10 +68,31 @@ function panel(bundle){
  btn('닫기',()=>root.remove());
  document.body.append(root);
 }
-function importHash(){
+let pending=null;
+function captureHash(){
  if(!location.hash.startsWith(PREFIX))return;
- try{const data=JSON.parse(decodeURIComponent(location.hash.slice(PREFIX.length)));history.replaceState(null,'',location.pathname+location.search);panel(data)}
- catch(e){alert('NAI 전송 데이터 해석 실패: '+e.message)}
+ try{
+  pending=JSON.parse(decodeURIComponent(location.hash.slice(PREFIX.length)));
+  history.replaceState(null,'',location.pathname+location.search);
+ }catch(e){pending={__error:'전송 데이터 해석 실패: '+e.message}}
 }
-importHash();window.addEventListener('hashchange',importHash);
+function showPending(){
+ if(!document.body)return;
+ if(pending){
+  const data=pending;pending=null;
+  if(data.__error){alert(data.__error);return}
+  panel(data);
+ }else if(!document.getElementById('nai-bridge-ready')){
+  const mark=document.createElement('button');mark.id='nai-bridge-ready';mark.textContent='NAI Bridge ✓';
+  mark.title='ScriptCat 스크립트 실행 중. Replacer에서 전송하면 전송 패널이 나타나.';
+  mark.style.cssText='position:fixed;bottom:12px;left:12px;z-index:2147483646;background:#263a55;color:#fff;border:1px solid #8ab2fa;border-radius:7px;padding:7px;font:12px system-ui';
+  mark.onclick=()=>alert('ScriptCat NAI Bridge 실행 중. 전송 데이터가 없어서 대기 중이야.');
+  document.body.append(mark);
+ }
+}
+captureHash();
+document.addEventListener('DOMContentLoaded',showPending);
+window.addEventListener('load',showPending);
+window.addEventListener('hashchange',()=>{captureHash();showPending()});
+if(document.readyState!=='loading')showPending();
 })();
