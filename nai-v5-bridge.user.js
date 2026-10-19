@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.9.2
+// @version      0.9.3
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -31,7 +31,7 @@ function panel(bundle){
  const title=document.createElement('h3');title.textContent='NAI V5 프롬프트 전송 · 실험판';root.append(title);
  const hint=document.createElement('p');hint.textContent='자동 입력은 정확히 식별된 칸에만 실행돼. 실패하면 입력칸 직접 지정 또는 복사를 사용해 줘. 생성은 직접 눌러.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v0.9.2 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v0.9.3 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function inspectEditors(){
   document.querySelectorAll('.nai-bridge-debug-pin').forEach(e=>e.remove());
   const els=fields().filter(e=>!root.contains(e));
@@ -131,13 +131,30 @@ function panel(bundle){
  btn('캐릭터별 프롬프트 보기',()=>{
   report.replaceChildren();for(const slot of bundle.characterPrompts||[]){const p=document.createElement('p');p.textContent='캐릭터 '+slot.index;const t=document.createElement('textarea');t.value=slot.prompt;t.readOnly=true;t.style.cssText='width:100%;min-height:80px';report.append(p,t);const b=document.createElement('button');b.textContent='복사';b.onclick=()=>navigator.clipboard.writeText(slot.prompt);report.append(b)}
  });
- btn('닫기',()=>{root.style.display='none';root.remove();});
+ btn('닫기',()=>{root.style.setProperty('display','none','important');document.getElementById('nai-bridge-hide')?.style.setProperty('display','none','important');});
  document.body.append(root);
  const closeOverlay=document.createElement('button');
  closeOverlay.id='nai-bridge-hide';
  closeOverlay.textContent='전송창 숨기기 ×';
  closeOverlay.style.cssText='position:fixed;bottom:65px;right:12px;z-index:2147483647;padding:12px 15px;background:#c84657;color:white;border:2px solid white;border-radius:10px;font:bold 14px system-ui';
- closeOverlay.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();root.style.display='none';closeOverlay.remove();},{capture:true});
+ function dismissBridge(e){
+  if(e){e.preventDefault();e.stopImmediatePropagation();}
+  root.style.setProperty('display','none','important');
+  root.style.setProperty('pointer-events','none','important');
+  closeOverlay.style.setProperty('display','none','important');
+  document.querySelectorAll('.nai-bridge-debug-pin').forEach(el=>el.remove());
+ }
+ // NovelAI can intercept bubbling clicks. Capture touch/pointer events early.
+ for(const type of ['pointerdown','touchstart','mousedown','click']){
+  closeOverlay.addEventListener(type,dismissBridge,{capture:true,passive:false});
+ }
+ const globalDismiss=e=>{
+  if(e.target===closeOverlay||e.target?.closest?.('#nai-bridge-hide')){
+   dismissBridge(e);
+  }
+ };
+ document.addEventListener('pointerdown',globalDismiss,true);
+ document.addEventListener('touchstart',globalDismiss,{capture:true,passive:false});
  document.body.append(closeOverlay);
  autoTransfer().catch(e=>{report.textContent='자동 전송 오류: '+e.message});
 }
@@ -159,7 +176,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='position:fixed;bottom:12px;left:12px;z-index:2147483646;background:#263a55;color:#fff;border:1px solid #8ab2fa;border-radius:7px;padding:7px;font:12px system-ui';
-  mark.onclick=()=>alert('NAI Bridge v0.9.2\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v0.9.3\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.textContent='NAI Bridge · '+(pending?'수신됨':status.startsWith('전송 데이터 없음')?'대기 중':'확인 필요');
