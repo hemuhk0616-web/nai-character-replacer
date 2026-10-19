@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.4.0
+// @version      0.5.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @match        https://novelai.net/*
 // @match        https://*.novelai.net/*
@@ -19,7 +19,7 @@ function setReactValue(el,value){
  el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:value}));
  el.dispatchEvent(new Event('change',{bubbles:true}));
 }
-function fields(){return [...document.querySelectorAll('textarea,input[type="text"],[contenteditable="true"],[role="textbox"]')].filter(e=>e.getClientRects().length&&!e.disabled);}
+function fields(){return [...document.querySelectorAll('textarea,input[type="text"],[contenteditable="true"],[role="textbox"],div[contenteditable],div[role="textbox"]')].filter(e=>e.getClientRects().length&&!e.disabled&&!e.closest('#nai-bridge-panel'));}
 function label(el){return [el.getAttribute('placeholder'),el.getAttribute('aria-label'),el.getAttribute('data-testid'),el.closest('label')?.textContent,el.parentElement?.parentElement?.textContent?.slice(0,140)].filter(Boolean).join(' ').toLowerCase();}
 function panel(bundle){
  document.getElementById('nai-bridge-panel')?.remove();
@@ -39,7 +39,7 @@ function panel(bundle){
    root.style.pointerEvents='auto';root.style.opacity='1';
    setReactValue(el,value);report.textContent=kind+' 입력 시도 완료. NovelAI 화면에 올바르게 표시되는지 확인해 줘.';
   };
-  setTimeout(()=>document.addEventListener('click',handler,true),0);
+  setTimeout(()=>document.addEventListener('click',handler,true),250);
  }
  function strictField(kind){
   const candidates=fields().filter(e=>!root.contains(e));
@@ -49,7 +49,8 @@ function panel(bundle){
   return matches.length===1?matches[0]:null;
  }
 
- function autoTransfer(){
+ async function autoTransfer(){
+  await delay(2400);
   const candidates=fields().filter(e=>!root.contains(e));
   const labelText=e=>[e.getAttribute('aria-label'),e.getAttribute('placeholder'),e.getAttribute('data-testid'),e.closest('[aria-label]')?.getAttribute('aria-label')].filter(Boolean).join(' ').toLowerCase();
   const neg=/negative|undesired|ネガティブ|부정|uc(?:\b|_)/i;
@@ -67,7 +68,9 @@ function panel(bundle){
     log.push('캐릭터 슬롯 '+chars.length+'개 입력 시도 (순서 확인 필요)');
    }else log.push('캐릭터 슬롯 미확인: '+chars.length+'개 전송 / '+charFields.length+'개 후보');
   }
-  report.textContent=log.join('\n')+'\n입력값이 올바른 칸에 유지되는지 확인해 줘.';
+  await delay(300);
+  const fieldInfo=candidates.map((e,i)=>`${i+1}. ${e.tagName.toLowerCase()} ${labelText(e).slice(0,85)||'(이름 없음)'} [${String(e.value??e.textContent??'').length}자]`);
+  report.textContent=log.join('\n')+'\n\n발견된 입력칸 '+candidates.length+'개:\n'+fieldInfo.join('\n')+'\n\n잘못된 칸에 입력되지 않았는지 확인해 줘.';
  }
  btn('메인 자동 입력 (확실한 칸만)',()=>{
   const el=strictField('메인');
@@ -88,7 +91,7 @@ function panel(bundle){
  });
  btn('닫기',()=>root.remove());
  document.body.append(root);
- setTimeout(autoTransfer,1200);
+ autoTransfer().catch(e=>{report.textContent='자동 전송 오류: '+e.message});
 }
 let pending=null;
 function captureHash(){
