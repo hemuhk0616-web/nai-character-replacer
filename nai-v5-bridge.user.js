@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.9.0
+// @version      0.9.1
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @match        https://novelai.net/*
 // @match        https://*.novelai.net/*
@@ -23,12 +23,13 @@ function fields(){return [...document.querySelectorAll('textarea,input[type="tex
 function label(el){return [el.getAttribute('placeholder'),el.getAttribute('aria-label'),el.getAttribute('data-testid'),el.closest('label')?.textContent,el.parentElement?.parentElement?.textContent?.slice(0,140)].filter(Boolean).join(' ').toLowerCase();}
 function panel(bundle){
  document.getElementById('nai-bridge-panel')?.remove();
+ document.getElementById('nai-bridge-hide')?.remove();
  const root=document.createElement('div');root.id='nai-bridge-panel';
  root.style.cssText='position:fixed;top:12px;right:12px;z-index:2147483647;width:min(92vw,380px);max-height:85vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const title=document.createElement('h3');title.textContent='NAI V5 프롬프트 전송 · 실험판';root.append(title);
  const hint=document.createElement('p');hint.textContent='자동 입력은 정확히 식별된 칸에만 실행돼. 실패하면 입력칸 직접 지정 또는 복사를 사용해 줘. 생성은 직접 눌러.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v0.9.0 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v0.9.1 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function inspectEditors(){
   document.querySelectorAll('.nai-bridge-debug-pin').forEach(e=>e.remove());
   const els=fields().filter(e=>!root.contains(e));
@@ -128,8 +129,14 @@ function panel(bundle){
  btn('캐릭터별 프롬프트 보기',()=>{
   report.replaceChildren();for(const slot of bundle.characterPrompts||[]){const p=document.createElement('p');p.textContent='캐릭터 '+slot.index;const t=document.createElement('textarea');t.value=slot.prompt;t.readOnly=true;t.style.cssText='width:100%;min-height:80px';report.append(p,t);const b=document.createElement('button');b.textContent='복사';b.onclick=()=>navigator.clipboard.writeText(slot.prompt);report.append(b)}
  });
- btn('닫기',()=>root.remove());
+ btn('닫기',()=>{root.style.display='none';root.remove();});
  document.body.append(root);
+ const closeOverlay=document.createElement('button');
+ closeOverlay.id='nai-bridge-hide';
+ closeOverlay.textContent='전송창 숨기기 ×';
+ closeOverlay.style.cssText='position:fixed;bottom:65px;right:12px;z-index:2147483647;padding:12px 15px;background:#c84657;color:white;border:2px solid white;border-radius:10px;font:bold 14px system-ui';
+ closeOverlay.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();root.style.display='none';closeOverlay.remove();},{capture:true});
+ document.body.append(closeOverlay);
  autoTransfer().catch(e=>{report.textContent='자동 전송 오류: '+e.message});
 }
 let pending=null;
@@ -150,7 +157,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='position:fixed;bottom:12px;left:12px;z-index:2147483646;background:#263a55;color:#fff;border:1px solid #8ab2fa;border-radius:7px;padding:7px;font:12px system-ui';
-  mark.onclick=()=>alert('NAI Bridge v0.9.0\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v0.9.1\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.textContent='NAI Bridge · '+(pending?'수신됨':status.startsWith('전송 데이터 없음')?'대기 중':'확인 필요');
