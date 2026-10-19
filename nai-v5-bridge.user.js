@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.5.0
+// @version      0.6.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @match        https://novelai.net/*
 // @match        https://*.novelai.net/*
@@ -94,25 +94,32 @@ function panel(bundle){
  autoTransfer().catch(e=>{report.textContent='자동 전송 오류: '+e.message});
 }
 let pending=null;
+let status='전송 데이터 없음';
 function captureHash(){
- if(!location.hash.startsWith(PREFIX))return;
+ if(!location.hash.startsWith(PREFIX)){status='전송 데이터 없음 (주소에 nai-replacer 없음)';return}
  try{
-  pending=JSON.parse(decodeURIComponent(location.hash.slice(PREFIX.length)));
+  const encoded=location.hash.slice(PREFIX.length);
+  status='전송 주소 감지 ('+encoded.length+'자)';
+  pending=JSON.parse(decodeURIComponent(encoded));
+  status='전송 데이터 수신 성공';
   history.replaceState(null,'',location.pathname+location.search);
- }catch(e){pending={__error:'전송 데이터 해석 실패: '+e.message}}
+ }catch(e){status='전송 데이터 오류: '+e.message;pending={__error:status}}
 }
 function showPending(){
  if(!document.body)return;
+ let mark=document.getElementById('nai-bridge-ready');
+ if(!mark){
+  mark=document.createElement('button');mark.id='nai-bridge-ready';
+  mark.style.cssText='position:fixed;bottom:12px;left:12px;z-index:2147483646;background:#263a55;color:#fff;border:1px solid #8ab2fa;border-radius:7px;padding:7px;font:12px system-ui';
+  mark.onclick=()=>alert('NAI Bridge v0.6.0\n'+status+'\n주소 길이: '+location.href.length+'자');
+  document.body.append(mark);
+ }
+ mark.textContent='NAI Bridge · '+(pending?'수신됨':status.startsWith('전송 데이터 없음')?'대기 중':'확인 필요');
  if(pending){
   const data=pending;pending=null;
-  if(data.__error){alert(data.__error);return}
+  if(data.__error){mark.textContent='NAI Bridge · 오류';return}
   panel(data);
- }else if(!document.getElementById('nai-bridge-ready')){
-  const mark=document.createElement('button');mark.id='nai-bridge-ready';mark.textContent='NAI Bridge ✓';
-  mark.title='ScriptCat 스크립트 실행 중. Replacer에서 전송하면 전송 패널이 나타나.';
-  mark.style.cssText='position:fixed;bottom:12px;left:12px;z-index:2147483646;background:#263a55;color:#fff;border:1px solid #8ab2fa;border-radius:7px;padding:7px;font:12px system-ui';
-  mark.onclick=()=>alert('ScriptCat NAI Bridge 실행 중. 전송 데이터가 없어서 대기 중이야.');
-  document.body.append(mark);
+  mark.textContent='NAI Bridge · 전송 패널 열림';
  }
 }
 captureHash();
