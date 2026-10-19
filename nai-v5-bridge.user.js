@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.7.0
+// @version      0.8.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @match        https://novelai.net/*
 // @match        https://*.novelai.net/*
@@ -69,14 +69,29 @@ function panel(bundle){
    const near=[...parent.querySelectorAll('[data-placeholder],[aria-placeholder],[placeholder]')].map(n=>[n.getAttribute('data-placeholder'),n.getAttribute('aria-placeholder'),n.getAttribute('placeholder')].filter(Boolean).join(' '));
    return near.some(t=>hint.test(t));
   });
-  const safeMain=positive.length===1?positive[0]:(mainHints.length===1?mainHints[0]:null);
+  // Locate visible section headings and map editors to their closest preceding heading.
+  // Only accept an unambiguous main/UC pair; do not assume DOM index order.
+  const headings=[...document.querySelectorAll('h1,h2,h3,h4,h5,h6,label,[role="heading"]')]
+   .filter(e=>e.getClientRects().length&&!root.contains(e))
+   .map(e=>({el:e,text:(e.textContent||'').trim().toLowerCase()}))
+   .filter(x=>x.text.length>0&&x.text.length<100);
+  function nearestHeading(editor){
+   const y=editor.getBoundingClientRect().top;
+   const prior=headings.filter(h=>h.el.getBoundingClientRect().top<=y+8);
+   prior.sort((a,b)=>b.el.getBoundingClientRect().top-a.el.getBoundingClientRect().top);
+   return prior[0]?.text||'';
+  }
+  const headingUC=candidates.filter(e=>/undesired content|negative prompt|ネガティブ|부정 프롬프트/i.test(nearestHeading(e)));
+  const headingMain=candidates.filter(e=>/^(?:prompt|main prompt|image prompt|プロンプト|메인 프롬프트)$/i.test(nearestHeading(e)));
+  const safeMain=positive.length===1?positive[0]:(mainHints.length===1?mainHints[0]:(headingMain.length===1?headingMain[0]:null));
+  const safeUC=negative.length===1?negative[0]:(headingUC.length===1?headingUC[0]:null);
   const log=[];
-  if(safeMain){setReactValue(safeMain,bundle.description||'');log.push('메인 입력 시도 (안내 문구 기반)')}else log.push('메인 입력칸 미확인 ('+positive.length+'개 이름 후보, '+mainHints.length+'개 안내 문구 후보)');
-  if(negative.length===1){setReactValue(negative[0],bundle.negativePrompt||'');log.push('UC 입력 시도')}else log.push('UC 입력칸 미확인 ('+negative.length+'개 후보)');
+  if(safeMain&&safeMain!==safeUC){setReactValue(safeMain,bundle.description||'');log.push('메인 입력 시도 (안내 문구 기반)')}else log.push('메인 입력칸 미확인 ('+positive.length+'개 이름 후보, '+mainHints.length+'개 안내 문구 후보)');
+  if(safeUC&&safeUC!==safeMain){setReactValue(safeUC,bundle.negativePrompt||'');log.push('UC 입력 시도 (영역 제목 기반)')}else log.push('UC 입력칸 미확인 ('+negative.length+'개 이름 후보, '+headingUC.length+'개 영역 후보)');
   const chars=(bundle.characterPrompts||[]).filter(x=>x.prompt);
   if(chars.length)log.push('캐릭터 '+chars.length+'개: 슬롯 미확인, 자동 입력 보류');
   await delay(300);
-  const fieldInfo=candidates.map((e,i)=>`${i+1}. ${e.tagName.toLowerCase()} ${labelText(e).slice(0,85)||'(이름 없음)'} [${String(e.value??e.textContent??'').length}자]`);
+  const fieldInfo=candidates.map((e,i)=>`${i+1}. ${e.tagName.toLowerCase()} ${labelText(e).slice(0,85)||'(이름 없음)'} / 영역: ${nearestHeading(e).slice(0,55)||'(없음)'} [${String(e.value??e.textContent??'').length}자]`);
   report.textContent=log.join('\n')+'\n\n발견된 입력칸 '+candidates.length+'개:\n'+fieldInfo.join('\n')+'\n\n잘못된 칸에 입력되지 않았는지 확인해 줘.';
  }
  btn('메인 자동 입력 (확실한 칸만)',()=>{
