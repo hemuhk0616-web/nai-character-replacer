@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.3.0
+// @version      0.4.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @match        https://novelai.net/*
 // @match        https://*.novelai.net/*
@@ -48,6 +48,27 @@ function panel(bundle){
   const matches=candidates.filter(kind==='UC'?isNegative:isMain);
   return matches.length===1?matches[0]:null;
  }
+
+ function autoTransfer(){
+  const candidates=fields().filter(e=>!root.contains(e));
+  const labelText=e=>[e.getAttribute('aria-label'),e.getAttribute('placeholder'),e.getAttribute('data-testid'),e.closest('[aria-label]')?.getAttribute('aria-label')].filter(Boolean).join(' ').toLowerCase();
+  const neg=/negative|undesired|ネガティブ|부정|uc(?:\b|_)/i;
+  const main=/prompt|プロンプト|프롬프트|description/i;
+  const negative=candidates.filter(e=>neg.test(labelText(e)));
+  const positive=candidates.filter(e=>main.test(labelText(e))&&!neg.test(labelText(e))&&!/character|キャラクター|캐릭터/i.test(labelText(e)));
+  const log=[];
+  if(positive.length===1){setReactValue(positive[0],bundle.description||'');log.push('메인 입력 시도')}else log.push('메인 입력칸 미확인 ('+positive.length+'개 후보)');
+  if(negative.length===1){setReactValue(negative[0],bundle.negativePrompt||'');log.push('UC 입력 시도')}else log.push('UC 입력칸 미확인 ('+negative.length+'개 후보)');
+  const chars=(bundle.characterPrompts||[]).filter(x=>x.prompt);
+  if(chars.length){
+   const charFields=candidates.filter(e=>/character|キャラクター|캐릭터/i.test(labelText(e))&&!neg.test(labelText(e)));
+   if(charFields.length===chars.length){
+    chars.forEach((x,i)=>setReactValue(charFields[i],x.prompt));
+    log.push('캐릭터 슬롯 '+chars.length+'개 입력 시도 (순서 확인 필요)');
+   }else log.push('캐릭터 슬롯 미확인: '+chars.length+'개 전송 / '+charFields.length+'개 후보');
+  }
+  report.textContent=log.join('\n')+'\n입력값이 올바른 칸에 유지되는지 확인해 줘.';
+ }
  btn('메인 자동 입력 (확실한 칸만)',()=>{
   const el=strictField('메인');
   if(!el){report.textContent='메인 입력칸을 확실히 식별하지 못했어. 아래 직접 지정 버튼을 사용해 줘.';return}
@@ -67,6 +88,7 @@ function panel(bundle){
  });
  btn('닫기',()=>root.remove());
  document.body.append(root);
+ setTimeout(autoTransfer,1200);
 }
 let pending=null;
 function captureHash(){
