@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.0.1
+// @version      1.0.2
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -28,18 +28,39 @@ function panel(bundle){
  document.getElementById('nai-bridge-hide')?.remove();
  document.getElementById('nai-bridge-launcher')?.remove();
  const root=document.createElement('div');root.id='nai-bridge-panel';
- root.style.cssText='position:fixed;top:50%;right:8px;transform:translateY(-50%);z-index:2147483647;width:min(94vw,420px);max-height:88vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
+ root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:88vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.0.1 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.0.2 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
  close.onclick=()=>{root.style.display='none';document.querySelectorAll('.nai-bridge-debug-pin').forEach(e=>e.remove())};
+
+ header.style.touchAction='none';
+ title.style.cursor='grab';
+ title.title='여기를 드래그해서 패널 이동';
+ let dragStart=null;
+ header.addEventListener('pointerdown',e=>{
+  if(e.target.closest('button'))return;
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  const rect=root.getBoundingClientRect();
+  dragStart={x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
+  header.setPointerCapture(e.pointerId);
+ });
+ header.addEventListener('pointermove',e=>{
+  if(!dragStart)return;
+  const x=Math.min(Math.max(0,dragStart.left+e.clientX-dragStart.x),Math.max(0,innerWidth-root.offsetWidth));
+  const y=Math.min(Math.max(0,dragStart.top+e.clientY-dragStart.y),Math.max(0,innerHeight-60));
+  root.style.left=x+'px';root.style.top=y+'px';root.style.right='auto';root.style.transform='none';
+ });
+ const stopDrag=()=>{dragStart=null};
+ header.addEventListener('pointerup',stopDrag);
+ header.addEventListener('pointercancel',stopDrag);
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='원본 이미지 설정을 확인하고 NovelAI에서 직접 맞춰 줘. 설정값 자동 적용은 지원하지 않아.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.0.1 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.0.2 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -221,7 +242,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.0.1\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.0.2\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
