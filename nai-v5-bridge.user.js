@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.2.6
+// @version      1.2.7
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -52,7 +52,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:58vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.6 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.7 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -81,7 +81,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='프롬프트 적용 또는 지우기를 선택해 줘. 나머지 설정은 아래에서 펼칠 수 있어.';hint.style.cssText='font-size:11px;color:#afbdd6;margin:4px 0';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.2.6 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.2.7 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -98,7 +98,7 @@ function panel(bundle){
  }
  const settings=bundle.generationSettings||{};
 
- const promptSection=makeSection('프롬프트 자동 입력 · V1.2.6');
+ const promptSection=makeSection('프롬프트 자동 입력 · V1.2.7');
  promptSection.open=true;
  report.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:12px system-ui;max-height:35vh;overflow:auto;background:#111b2b;padding:8px;border-radius:6px';
  const btn=(name,fn)=>{const b=document.createElement('button');b.textContent=name;b.style.cssText='padding:10px;margin:4px;background:#5276d8;color:white;border:0;border-radius:6px';b.onclick=fn;promptSection.append(b)};
@@ -141,6 +141,11 @@ function panel(bundle){
  function normalizedPromptText(value){
   return String(value).normalize('NFC').replace(/\r\n?/g,'\n').replace(/\u00a0/g,' ').replace(/[\u200b\u200c\u200d\ufeff]/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n[ \t]+/g,'\n').trim();
  }
+ function promptAlreadyMatches(el,next){
+  const wanted=normalizedPromptText(next);
+  // ProseMirror innerText may add a visual line break not present in the document text.
+  return [el.innerText,el.textContent].some(value=>normalizedPromptText(value)===wanted);
+ }
  async function applyStep(){
   const run=safeBatch;if(!run||run.busy)return;run.busy=true;
   try{
@@ -152,7 +157,7 @@ function panel(bundle){
     el.focus();await delay(100);
     if(document.activeElement!==el||!visible(el))throw Error(item.name+': 포커스 확인 실패');
     const next=String(item.value);
-    if(normalizedPromptText(el.innerText)!==normalizedPromptText(next)){
+    if(!promptAlreadyMatches(el,next)){
      const sel=window.getSelection(),range=document.createRange();range.selectNodeContents(el);sel.removeAllRanges();sel.addRange(range);
      if(document.activeElement!==el||!visible(el))throw Error(item.name+': 붙여넣기 대상 변경');
      const dt=new DataTransfer();dt.setData('text/plain',next);
@@ -160,7 +165,7 @@ function panel(bundle){
      sel.removeAllRanges();await delay(350);
      if(normalizedPromptText(el.innerText)!==normalizedPromptText(next)){
       await delay(650);
-      if(normalizedPromptText(el.innerText)!==normalizedPromptText(next))throw Error(item.name+': 입력 검증 실패 (기대 '+normalizedPromptText(next).length+'자 / 실제 '+normalizedPromptText(el.innerText).length+'자)');
+      if(!promptAlreadyMatches(el,next))throw Error(item.name+': 입력 검증 실패 (기대 '+normalizedPromptText(next).length+'자 / 실제 '+normalizedPromptText(el.innerText).length+'자)');
      }
     }
     run.position++;report.textContent='진행 '+run.position+'/'+run.items.length+' · '+item.name;
@@ -241,7 +246,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.2.6\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.2.7\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
