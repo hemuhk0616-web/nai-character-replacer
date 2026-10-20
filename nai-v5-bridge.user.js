@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.1.16
+// @version      1.1.17
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -52,7 +52,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:58vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.1.16 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.1.17 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -81,7 +81,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='프롬프트 적용 또는 지우기를 선택해 줘. 나머지 설정은 아래에서 펼칠 수 있어.';hint.style.cssText='font-size:11px;color:#afbdd6;margin:4px 0';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.1.16 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.1.17 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -445,7 +445,7 @@ function panel(bundle){
     ancestors.push({tag:p.tagName.toLowerCase(),classNames:[...p.classList].filter(x=>x.length<65).slice(0,5),attrs:safeAttrs(p),headings});
    }
    const editors=[...document.querySelectorAll('textarea,input,[contenteditable="true"],[role="textbox"]')].filter(x=>!x.closest('#nai-bridge-panel'));
-   const data={bridgeVersion:'1.1.16',editor:{tag:el.tagName.toLowerCase(),attrs:safeAttrs(el),visible:!!el.getClientRects().length,editable:el.isContentEditable},ancestors,editorCounts:{total:editors.length,visible:editors.filter(x=>x.getClientRects().length).length},note:'본문/입력값/계정정보 제외'};
+   const data={bridgeVersion:'1.1.17',editor:{tag:el.tagName.toLowerCase(),attrs:safeAttrs(el),visible:!!el.getClientRects().length,editable:el.isContentEditable},ancestors,editorCounts:{total:editors.length,visible:editors.filter(x=>x.getClientRects().length).length},note:'본문/입력값/계정정보 제외'};
    const json=JSON.stringify(data,null,2);
    report.textContent='진단 완료 · 아래 결과를 복사해 채팅에 붙여넣어 줘.\\n'+json;
    const copy=document.createElement('button');copy.textContent='진단 결과 복사';copy.style.cssText='padding:9px;margin:8px 0;background:#5276d8;color:white;border:0;border-radius:6px';
@@ -479,7 +479,7 @@ function panel(bundle){
     ancestors.push({...describe(p),siblingIndex:siblings.indexOf(p),siblingCount:siblings.length});
    }
    const siblings=clickable.parentElement?[...clickable.parentElement.children]:[];
-   const data={bridgeVersion:'1.1.16',diagnostic:'character-opener',touched:describe(target),clickable:describe(clickable),ancestors,neighborElements:siblings.slice(Math.max(0,siblings.indexOf(clickable)-2),siblings.indexOf(clickable)+3).map(describe),note:'텍스트·프롬프트·URL·계정정보·ID 속성 제외'};
+   const data={bridgeVersion:'1.1.17',diagnostic:'character-opener',touched:describe(target),clickable:describe(clickable),ancestors,neighborElements:siblings.slice(Math.max(0,siblings.indexOf(clickable)-2),siblings.indexOf(clickable)+3).map(describe),note:'텍스트·프롬프트·URL·계정정보·ID 속성 제외'};
    const json=JSON.stringify(data,null,2);
    finish();
    report.textContent='버튼 진단 완료 · 아래 결과를 복사해서 채팅에 붙여넣어 줘.\\n'+json;
@@ -500,7 +500,7 @@ function panel(bundle){
   };
   const fields=keys.map(([key,selector])=>{const containers=[...document.querySelectorAll(selector)];const editors=[...document.querySelectorAll(selector+' .ProseMirror[contenteditable="true"]')];return {key,containerCount:containers.length,editorCount:editors.length,editors:editors.map(safe)}});
   const characterButtons=[1,2].map(index=>{const region=document.querySelector('.character-prompt-input-'+index);const buttons=region?[...region.querySelectorAll(':scope > button')]:[];return {index,regionPresent:!!region,buttonCount:buttons.length,regionVisible:!!region?.getClientRects().length,buttonVisible:buttons.map(b=>!!b.getClientRects().length)}});
-  const json=JSON.stringify({bridgeVersion:'1.1.16',diagnostic:'prosemirror-readonly',fields,characterButtons,note:'읽기 전용. 프롬프트 본문·문서 상태·계정정보·URL 미수집. EditorView 존재 여부만 확인.'},null,2);
+  const json=JSON.stringify({bridgeVersion:'1.1.17',diagnostic:'prosemirror-readonly',fields,characterButtons,note:'읽기 전용. 프롬프트 본문·문서 상태·계정정보·URL 미수집. EditorView 존재 여부만 확인.'},null,2);
   report.textContent='ProseMirror 구조 진단 완료 · 아래 결과를 복사해 줘.\n'+json;
   const copy=document.createElement('button');copy.textContent='구조 진단 결과 복사';copy.style.cssText='padding:9px;margin:8px 0;background:#5276d8;color:white;border:0;border-radius:6px';
   copy.onclick=async()=>{try{await navigator.clipboard.writeText(json);copy.textContent='복사 완료 ✓'}catch{report.textContent+='\n복사 실패 · 결과를 길게 눌러 복사해 줘'}};
@@ -524,7 +524,7 @@ function panel(bundle){
    for(let i=0;i<5&&n;i++,n=n.parentElement)targetPath.push(safeNode(n));
    setTimeout(()=>{
     const after=snapshot();
-    const result=JSON.stringify({bridgeVersion:'1.1.16',diagnostic:'tab-transition-readonly',before,after,tappedElementPath:targetPath,note:'사용자가 직접 누른 첫 번째 페이지 요소의 구조만 수집. 텍스트·프롬프트·URL·계정정보 제외.'},null,2);
+    const result=JSON.stringify({bridgeVersion:'1.1.17',diagnostic:'tab-transition-readonly',before,after,tappedElementPath:targetPath,note:'사용자가 직접 누른 첫 번째 페이지 요소의 구조만 수집. 텍스트·프롬프트·URL·계정정보 제외.'},null,2);
     report.textContent='탭 전환 진단 완료\n'+result;
     const copy=document.createElement('button');copy.textContent='탭 진단 결과 복사';copy.style.cssText='padding:9px;margin:8px 0;background:#5276d8;color:white;border:0;border-radius:6px';
     copy.onclick=async()=>{try{await navigator.clipboard.writeText(result);copy.textContent='복사 완료 ✓'}catch{report.textContent+='\n복사 실패 · 결과를 길게 눌러 복사해 줘'}};
@@ -555,7 +555,7 @@ function panel(bundle){
   const finish=()=>{
    if(finished)return;finished=true;
    for(const t of types)document.removeEventListener(t,handler,true);
-   const json=JSON.stringify({bridgeVersion:'1.1.16',diagnostic:'input-event-readonly',events,counts,note:'입력값·키 이름·문서 내용·클립보드·URL 수집 안 함. 이벤트 종류와 필드만 기록.'},null,2);
+   const json=JSON.stringify({bridgeVersion:'1.1.17',diagnostic:'input-event-readonly',events,counts,note:'입력값·키 이름·문서 내용·클립보드·URL 수집 안 함. 이벤트 종류와 필드만 기록.'},null,2);
    report.textContent='입력 이벤트 진단 완료\n'+json;
    const copy=document.createElement('button');copy.textContent='입력 이벤트 진단 결과 복사';copy.style.cssText='padding:9px;margin:8px 0;background:#5276d8;color:white;border:0;border-radius:6px';
    copy.onclick=async()=>{try{await navigator.clipboard.writeText(json);copy.textContent='복사 완료 ✓'}catch{report.textContent+='\n복사 실패 · 결과를 길게 눌러 복사해 줘'}};
@@ -589,7 +589,7 @@ function panel(bundle){
   await new Promise(resolve=>setTimeout(resolve,700));
   const after=el.textContent.trim()===sample;
   const active=document.activeElement===el;
-  const result={bridgeVersion:'1.1.16',test:'char2-synthetic-paste',field:'char2',precondition:'empty and visible',sample,syntheticEventTrusted:ev.isTrusted,dispatchEventReturn:dispatched,defaultPrevented:ev.defaultPrevented,immediateMatch:immediately,after700msMatch:after,stillFocused:active,error,note:'DOM 일치만 확인. ProseMirror 내부 상태 및 서버 저장 여부는 미검증. 문자열은 직접 삭제 필요.'};
+  const result={bridgeVersion:'1.1.17',test:'char2-synthetic-paste',field:'char2',precondition:'empty and visible',sample,syntheticEventTrusted:ev.isTrusted,dispatchEventReturn:dispatched,defaultPrevented:ev.defaultPrevented,immediateMatch:immediately,after700msMatch:after,stillFocused:active,error,note:'DOM 일치만 확인. ProseMirror 내부 상태 및 서버 저장 여부는 미검증. 문자열은 직접 삭제 필요.'};
   report.textContent=JSON.stringify(result,null,2);
   const b=document.createElement('button');b.textContent='실험 결과 복사';b.style.cssText='padding:9px;margin:8px 0;background:#5276d8;color:white;border:0;border-radius:6px';b.onclick=()=>navigator.clipboard.writeText(JSON.stringify(result,null,2));report.prepend(b);
  }
@@ -609,37 +609,44 @@ function panel(bundle){
 
  async function autoRevealBatchField(key){
   const targetSel=batchSelector(key);
+  const editorFor=k=>document.querySelector(batchSelector(k)+' .ProseMirror[contenteditable="true"]');
   const visible=()=>{const matches=[...document.querySelectorAll(targetSel+' .ProseMirror[contenteditable="true"]')];return matches.length===1&&batchVisible(matches[0])};
   if(visible())return true;
   const m=/^char(\d+)(uc)?$/.exec(key);
-  if(m){
-   const index=m[1],promptSel='.prompt-input-box-character-prompts-'+index;
-   const prompt=document.querySelector(promptSel+' .ProseMirror[contenteditable="true"]');
-   if(!prompt||!batchVisible(prompt)){
-    const btns=[...document.querySelectorAll('.character-prompt-input-'+index+' > button')];
-    if(btns.length!==1||btns[0].getBoundingClientRect().width===0)return false;
-    btns[0].click();await delay(350);
-   }
+  const counterpart=key==='uc'?'main':m?(m[2]?'char'+m[1]:'char'+m[1]+'uc'):'uc';
+  if(m&&!batchVisible(editorFor(key))&&!batchVisible(editorFor(counterpart))){
+   const buttons=[...document.querySelectorAll('.character-prompt-input-'+m[1]+' > button')];
+   if(buttons.length!==1||buttons[0].getBoundingClientRect().width<12)return false;
+   buttons[0].click();await delay(350);
   }
   if(visible())return true;
-  // Only activate a uniquely identifiable tab inside the exact prompt box.
-  const host=document.querySelector(targetSel);
-  const counterpart=key==='uc'?'main':m?(m[2]?'char'+m[1]:'char'+m[1]+'uc'):'uc';
-  const other=document.querySelector(batchSelector(counterpart));
-  const scope=host&&other?host.parentElement===other.parentElement?host.parentElement:host.parentElement?.parentElement:null;
-  if(!scope)return false;
+  const host=document.querySelector(targetSel),other=document.querySelector(batchSelector(counterpart));
+  if(!host||!other)return false;
+  // Find the nearest common ancestor rather than assuming a fixed number of wrappers.
+  let scope=host.parentElement;
+  while(scope&&!scope.contains(other))scope=scope.parentElement;
+  if(!scope||scope===document.body)return false;
   const desiredUC=key==='uc'||!!m?.[2];
-  const candidates=[...scope.querySelectorAll('button,[role="tab"]')].filter(b=>{
+  const buttons=[...scope.querySelectorAll('button,[role="tab"]')].filter(b=>{
    const r=b.getBoundingClientRect();
-   if(r.width<12||r.height<10||b.closest('#nai-bridge-panel'))return false;
-   const label=[b.textContent,b.getAttribute('aria-label'),b.getAttribute('title')].filter(Boolean).join(' ').trim();
-   return desiredUC?/^(UC|Undesired Content|Negative Prompt)$/i.test(label):/^(Prompt|프롬프트|Positive Prompt)$/i.test(label);
+   return r.width>=12&&r.height>=10&&!b.closest('#nai-bridge-panel');
   });
+  const labels=b=>[b.textContent,b.getAttribute('aria-label'),b.getAttribute('title')].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+  const isUC=b=>/\b(uc|undesired content|negative prompt)\b/i.test(labels(b))||/네거티브|부정 프롬프트/i.test(labels(b));
+  const isPrompt=b=>/\b(positive prompt|prompt)\b/i.test(labels(b))||/일반 프롬프트/i.test(labels(b));
+  // First prefer an explicit ARIA link to the exact target panel.
+  let candidates=buttons.filter(b=>{
+   const id=b.getAttribute('aria-controls');
+   return !!id&&(id===host.id||host.contains(document.getElementById(id)));
+  });
+  if(candidates.length!==1){
+   candidates=buttons.filter(b=>desiredUC?isUC(b):isPrompt(b)&&!isUC(b));
+  }
   if(candidates.length!==1)return false;
-  candidates[0].click();await delay(300);
-  return visible();
+  candidates[0].click();
+  for(let attempt=0;attempt<6;attempt++){await delay(120);if(visible())return true}
+  return false;
  }
-
  async function safeBatchStep(){
   const run=safeBatch;if(!run||run.busy)return;run.busy=true;
   try{
@@ -674,22 +681,22 @@ function panel(bundle){
     }
     run.done.push(item.name);run.position++;
    }
-   report.textContent='V1.1.16 '+run.done.length+'개 입력 확인 완료. NovelAI에서 내용과 생성 결과를 직접 확인해 줘.';
+   report.textContent='V1.1.17 '+run.done.length+'개 입력 확인 완료. NovelAI에서 내용과 생성 결과를 직접 확인해 줘.';
    safeBatch=null;
   }catch(e){
    report.textContent='안전 중단 · '+e.message+'\n완료: '+run.done.join(', ')+'\n부분 적용 상태일 수 있어. 자동 복구는 실행하지 않아.';
    safeBatch=null;
   }finally{run.busy=false}
  }
- btn('V1.1.16 안전 순차 적용 시작',()=>{
+ btn('V1.1.17 안전 순차 적용 시작',()=>{
   if(safeBatch){report.textContent='진행 중인 적용이 있어. 다음 칸 적용 또는 취소를 눌러 줘.';return}
   const items=entries();
   if(!items.length||items.some(x=>!batchSelector(x.key))){report.textContent='지원하지 않는 슬롯이 있어 중단';return}
   if(!confirm('총 '+items.length+'개 입력칸을 순차적으로 교체할까?\n확실하게 식별되는 탭만 자동 전환하고, 불확실하면 일시정지해. 기존 내용은 변경되며 자동 복구되지 않아.'))return;
   safeBatch={items,position:0,done:[],busy:false};safeBatchStep();
  });
- btn('V1.1.16 다음 칸 적용',()=>{if(!safeBatch){report.textContent='진행 중인 적용 없음';return}safeBatchStep()});
- btn('V1.1.16 순차 적용 취소',()=>{if(safeBatch?.busy){report.textContent='현재 입력이 끝난 뒤 취소해 줘';return}safeBatch=null;report.textContent='순차 적용 취소됨. 이미 적용한 내용은 유지돼.'});
+ btn('V1.1.17 다음 칸 적용',()=>{if(!safeBatch){report.textContent='진행 중인 적용 없음';return}safeBatchStep()});
+ btn('V1.1.17 순차 적용 취소',()=>{if(safeBatch?.busy){report.textContent='현재 입력이 끝난 뒤 취소해 줘';return}safeBatch=null;report.textContent='순차 적용 취소됨. 이미 적용한 내용은 유지돼.'});
 
 
 
@@ -791,7 +798,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.1.16\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.1.17\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
