@@ -20,7 +20,7 @@ function renderPresets(id){$('preset').replaceChildren();for(const p of presets)
 function selectPreset(){const p=presets.find(p=>p.id===$('preset').value);if(!p)return;$('presetName').value=p.name;$('identity').value=p.identity;$('outfit').value=p.outfit;rebuild()}
 $('preset').onchange=selectPreset;$('savePreset').onclick=()=>{const p=presets.find(p=>p.id===$('preset').value);if(!p)return;p.name=$('presetName').value.trim()||p.name;p.identity=$('identity').value;p.outfit=$('outfit').value;saveAll();renderPresets(p.id);$('status').textContent='프리셋 저장 완료'};
 $('newPreset').onclick=()=>{const p={id:'custom-'+Date.now(),name:'새 캐릭터',identity:'',outfit:''};presets.push(p);saveAll();renderPresets(p.id)};
-$('deletePreset').onclick=()=>{if(presets.length<2){alert('프리셋은 하나 이상 필요합니다.');return}presets=presets.filter(p=>p.id!==$('preset').value);saveAll();renderPresets()};$('identity').oninput=rebuild;$('outfit').oninput=rebuild;$('includeOutfit').onchange=()=>{classify();};
+$('deletePreset').onclick=()=>{if(presets.length<2){alert('프리셋은 하나 이상 필요합니다.');return}presets=presets.filter(p=>p.id!==$('preset').value);saveAll();renderPresets()};$('identity').oninput=rebuild;$('outfit').oninput=rebuild;$('includeOutfit').onchange=()=>{classify();renderSlotTagReviews();rebuild()};
 // Keep exact source text for every comma-delimited token, including separators and whitespace.
 function tokenize(s){let a=[],start=0;for(let i=0;i<s.length;i++)if(s[i]===','){a.push({raw:s.slice(start,i),sep:',',action:null});start=i+1}a.push({raw:s.slice(start),sep:'',action:null});return a}
 // V0.6: conservative semantic classifier; unknown tags are always preserved.
