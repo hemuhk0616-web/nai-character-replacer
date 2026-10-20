@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.9.8
+// @version      1.0.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -28,22 +28,61 @@ function panel(bundle){
  document.getElementById('nai-bridge-hide')?.remove();
  document.getElementById('nai-bridge-launcher')?.remove();
  const root=document.createElement('div');root.id='nai-bridge-panel';
- root.style.cssText='position:fixed;top:12px;right:12px;z-index:2147483647;width:min(92vw,380px);max-height:44px;overflow:hidden;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
+ root.style.cssText='position:fixed;top:50%;right:8px;transform:translateY(-50%);z-index:2147483647;width:min(94vw,420px);max-height:88vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const title=document.createElement('button');
- title.textContent='NAI Bridge v0.9.8 ▾ 펼치기';
+ title.textContent='NAI Bridge v1.0.0 · 설정 확인';
  title.style.cssText='display:block;width:100%;padding:6px;background:#304567;color:white;border:0;text-align:left;font:bold 14px system-ui';
  let expanded=false;
  const toggle=()=>{
   expanded=!expanded;
-  root.style.maxHeight=expanded?'85vh':'44px';
+  root.style.maxHeight=expanded?'88vh':'44px';
   root.style.overflow=expanded?'auto':'hidden';
-  title.textContent=expanded?'NAI Bridge v0.9.8 ▴ 접기':'NAI Bridge v0.9.8 ▾ 펼치기';
+  title.textContent=expanded?'NAI Bridge v1.0.0 ▴ 접기':'NAI Bridge v1.0.0 ▾ 펼치기';
  };
  title.addEventListener('click',toggle);
  root.append(title);
- const hint=document.createElement('p');hint.textContent='자동 입력은 정확히 식별된 칸에만 실행돼. 실패하면 입력칸 직접 지정 또는 복사를 사용해 줘. 생성은 직접 눌러.';root.append(hint);
+ const hint=document.createElement('p');hint.textContent='원본 이미지 설정을 확인하고 NovelAI에서 직접 맞춰 줘. 설정값 자동 적용은 지원하지 않아.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v0.9.8 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.0.0 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ function makeSection(name){
+  const d=document.createElement('details');
+  d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
+  const summary=document.createElement('summary');summary.textContent=name;summary.style.cssText='font-weight:700;cursor:pointer;padding:3px';d.append(summary);root.append(d);return d;
+ }
+ function settingLine(parent,name,value){
+  if(value===undefined||value===null||value==='')return;
+  const line=document.createElement('div');
+  line.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #344055';
+  const label=document.createElement('span');label.textContent=name;label.style.color='#afbdd6';
+  const val=document.createElement('span');val.textContent=typeof value==='boolean'?(value?'ON':'OFF'):String(value);val.style.cssText='font-weight:650;text-align:right;overflow-wrap:anywhere;font-variant-numeric:tabular-nums';
+  line.append(label,val);parent.append(line);
+ }
+ const settings=bundle.generationSettings||{};
+ const imageSection=makeSection('① 이미지 설정 · Image');
+ imageSection.open=true;
+ settingLine(imageSection,'Width × Height',settings.width&&settings.height?settings.width+' × '+settings.height:undefined);
+ settingLine(imageSection,'Seed',settings.seed);
+ const aiSection=makeSection('② AI 설정 · Generation');
+ aiSection.open=true;
+ for(const [key,name] of [['steps','Steps'],['scale','Guidance / Scale'],['sampler','Sampler'],['noise_schedule','Noise Schedule'],['cfg_rescale','CFG Rescale']])settingLine(aiSection,name,settings[key]);
+ const advancedSection=makeSection('③ Advanced 설정');
+ for(const [key,name] of [['sm','SM'],['sm_dyn','SM Dynamic'],['dynamic_thresholding','Dynamic Thresholding'],['skip_cfg_above_sigma','Skip CFG Above Sigma'],['variety_plus','Variety+']])settingLine(advancedSection,name,settings[key]);
+ const known=new Set(['width','height','seed','steps','scale','sampler','noise_schedule','cfg_rescale','sm','sm_dyn','dynamic_thresholding','skip_cfg_above_sigma','variety_plus']);
+ for(const [key,value] of Object.entries(settings))if(!known.has(key)&&typeof value!=='object')settingLine(advancedSection,key,value);
+ const posSection=makeSection('④ 캐릭터 위치 · Character Positions');
+ posSection.open=true;
+ const slots=bundle.characterPrompts||[];
+ if(!slots.length){settingLine(posSection,'위치','캐릭터 슬롯 없음');}
+ for(const slot of slots){
+  const coords=slot.centers;
+  settingLine(posSection,'캐릭터 '+slot.index,Array.isArray(coords)&&coords.length?coords.map(c=>'('+Number(c.x).toFixed(4)+', '+Number(c.y).toFixed(4)+')').join(' / '):'좌표 없음');
+ }
+ const note=document.createElement('p');
+ note.textContent='좌표는 원본 참고용이야. NovelAI 위치 설정에 자동 적용되지 않아.';
+ note.style.cssText='font-size:11px;color:#aab8d2';
+ posSection.append(note);
+ const promptSection=makeSection('⑤ 프롬프트 전송 · 수동 지정');
+ promptSection.open=false;
  function inspectEditors(){
   document.querySelectorAll('.nai-bridge-debug-pin').forEach(e=>e.remove());
   const els=fields().filter(e=>!root.contains(e));
@@ -72,7 +111,7 @@ function panel(bundle){
   report.textContent='입력창 '+els.length+'개 확인. 화면 밖 숫자는 숨김. NovelAI 아래 프롬프트 패널을 위로 스와이프한 다음 실제 입력창 옆의 번호를 확인해 줘.\n'+els.map((e,i)=>(i+1)+'. '+e.tagName.toLowerCase()+' '+String(e.className).slice(0,35)+' 현재값='+String(e.textContent||'').slice(0,28)).join('\n');
  }
 
- function btn(name,fn){const b=document.createElement('button');b.textContent=name;b.style.cssText='padding:9px;margin:3px;background:#5276d8;color:white;border:0;border-radius:6px';b.onclick=fn;root.append(b)}
+ function btn(name,fn){const b=document.createElement('button');b.textContent=name;b.style.cssText='padding:9px;margin:4px 2px;background:#5276d8;color:white;border:0;border-radius:6px;font-size:12px';b.onclick=fn;promptSection.append(b)}
  function selectTarget(kind,value){
   report.textContent=kind+' 입력칸을 NovelAI 화면에서 직접 터치해 줘. 선택한 칸에만 입력해.';
   root.style.pointerEvents='none';root.style.opacity='.45';
@@ -124,12 +163,12 @@ function panel(bundle){
  document.body.append(root);
  const launcher=document.createElement('button');
  launcher.id='nai-bridge-launcher';
- launcher.textContent='NAI';
+ launcher.textContent='NAI ⚙';
  launcher.title='NAI Bridge 열기';
  launcher.style.cssText='position:fixed;right:6px;top:50%;z-index:2147483646;background:#263a55;color:white;border:1px solid #8ab2fa;border-radius:8px 0 0 8px;padding:8px 4px;font:bold 10px system-ui;opacity:.65';
  launcher.onclick=()=>{
   root.style.display=root.style.display==='none'?'block':'none';
-  if(root.style.display==='block'){root.style.maxHeight='85vh';root.style.overflow='auto';}
+  if(root.style.display==='block'){root.style.maxHeight='88vh';root.style.overflow='auto';}
  };
  document.body.append(launcher);
  const closeOverlay=document.createElement('button');
@@ -175,7 +214,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v0.9.8\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.0.0\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
