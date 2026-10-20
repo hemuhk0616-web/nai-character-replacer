@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.0.2
+// @version      1.0.3
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -15,11 +15,30 @@
 const PREFIX='#nai-replacer=';
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 function setReactValue(el,value){
- const proto=el instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:el instanceof HTMLInputElement?HTMLInputElement.prototype:null;
- const setter=proto&&Object.getOwnPropertyDescriptor(proto,'value')?.set;
- if(setter)setter.call(el,value);else if(el.isContentEditable)el.textContent=value;else el.value=value;
- el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:value}));
- el.dispatchEvent(new Event('change',{bubbles:true}));
+ const text=String(value??'');
+ if(el.isContentEditable||el.getAttribute('contenteditable')==='true'){
+  // ProseMirror and similar editors need a real editor transaction, not textContent mutation.
+  el.focus();
+  const selection=window.getSelection();
+  const range=document.createRange();
+  range.selectNodeContents(el);
+  selection.removeAllRanges();selection.addRange(range);
+  let ok=false;
+  try{ok=document.execCommand('insertText',false,text)}catch{}
+  if(!ok){
+   // Fallback: DOM replacement may not sync the editor model; report this to the user.
+   selection.removeAllRanges();
+   throw Error('편집기 전체 교체 실패. NovelAI 편집기가 직접 입력을 차단했어.');
+  }
+  selection.removeAllRanges();
+ }else{
+  const proto=el instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:el instanceof HTMLInputElement?HTMLInputElement.prototype:null;
+  const setter=proto&&Object.getOwnPropertyDescriptor(proto,'value')?.set;
+  if(!setter)throw Error('지원하지 않는 입력창');
+  setter.call(el,text);
+  el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertReplacementText',data:text}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+ }
 }
 function fields(){return [...document.querySelectorAll('textarea,input[type="text"],[contenteditable="true"],[role="textbox"],div[contenteditable],div[role="textbox"]')].filter(e=>e.getClientRects().length&&!e.disabled&&!e.closest('#nai-bridge-panel'));}
 function label(el){return [el.getAttribute('placeholder'),el.getAttribute('aria-label'),el.getAttribute('data-testid'),el.closest('label')?.textContent,el.parentElement?.parentElement?.textContent?.slice(0,140)].filter(Boolean).join(' ').toLowerCase();}
@@ -31,7 +50,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:88vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.0.2 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.0.3 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -60,7 +79,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='원본 이미지 설정을 확인하고 NovelAI에서 직접 맞춰 줘. 설정값 자동 적용은 지원하지 않아.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.0.2 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.0.3 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -148,7 +167,7 @@ function panel(bundle){
    if(!el||root.contains(el))return;
    e.preventDefault();e.stopImmediatePropagation();document.removeEventListener('click',handler,true);
    root.style.pointerEvents='auto';root.style.opacity='1';
-   setReactValue(el,value);report.textContent=kind+' 입력 시도 완료. NovelAI 화면에 올바르게 표시되는지 확인해 줘.';
+   try{setReactValue(el,value);report.textContent=kind+' 기존 내용 전체 교체 시도 완료. NovelAI 화면을 확인해 줘.'}catch(err){report.textContent=kind+' 교체 실패: '+err.message}
   };
   setTimeout(()=>document.addEventListener('click',handler,true),250);
  }
@@ -170,12 +189,12 @@ function panel(bundle){
  btn('메인 자동 입력 (확실한 칸만)',()=>{
   const el=strictField('메인');
   if(!el){report.textContent='메인 입력칸을 확실히 식별하지 못했어. 아래 직접 지정 버튼을 사용해 줘.';return}
-  setReactValue(el,bundle.description||'');report.textContent='메인 입력 시도 완료. 화면을 확인해 줘.';
+  try{setReactValue(el,bundle.description||'');report.textContent='메인 기존 내용 전체 교체 시도 완료. 화면을 확인해 줘.'}catch(err){report.textContent='메인 교체 실패: '+err.message}
  });
  btn('UC 자동 입력 (확실한 칸만)',()=>{
   const el=strictField('UC');
   if(!el){report.textContent='UC 입력칸을 확실히 식별하지 못했어. 아래 직접 지정 버튼을 사용해 줘.';return}
-  setReactValue(el,bundle.negativePrompt||'');report.textContent='UC 입력 시도 완료. 화면을 확인해 줘.';
+  try{setReactValue(el,bundle.negativePrompt||'');report.textContent='UC 기존 내용 전체 교체 시도 완료. 화면을 확인해 줘.'}catch(err){report.textContent='UC 교체 실패: '+err.message}
  });
  btn('메인 입력칸 직접 지정',()=>selectTarget('메인',bundle.description||''));
  btn('UC 입력칸 직접 지정',()=>selectTarget('UC',bundle.negativePrompt||''));
@@ -242,7 +261,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.0.2\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.0.3\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
