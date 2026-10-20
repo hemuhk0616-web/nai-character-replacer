@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.2.3
+// @version      1.2.4
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -52,7 +52,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:58vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.3 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.4 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -81,7 +81,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='프롬프트 적용 또는 지우기를 선택해 줘. 나머지 설정은 아래에서 펼칠 수 있어.';hint.style.cssText='font-size:11px;color:#afbdd6;margin:4px 0';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.2.3 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.2.4 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -98,7 +98,7 @@ function panel(bundle){
  }
  const settings=bundle.generationSettings||{};
 
- const promptSection=makeSection('프롬프트 자동 입력 · V1.2.3');
+ const promptSection=makeSection('프롬프트 자동 입력 · V1.2.4');
  promptSection.open=true;
  report.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:12px system-ui;max-height:35vh;overflow:auto;background:#111b2b;padding:8px;border-radius:6px';
  const btn=(name,fn)=>{const b=document.createElement('button');b.textContent=name;b.style.cssText='padding:10px;margin:4px;background:#5276d8;color:white;border:0;border-radius:6px';b.onclick=fn;promptSection.append(b)};
@@ -168,6 +168,15 @@ function panel(bundle){
  btn('적용 취소',()=>{if(safeBatch?.busy){report.textContent='현재 입력이 끝난 후 취소해 줘';return}safeBatch=null;report.textContent='취소됨'});
  btn('입력칸 현황',()=>{report.textContent=entries().map(x=>{const e=editor(x.key);return x.name+': '+(e?(visible(e)?'표시됨':'숨겨짐'):'미생성/식별 실패')}).join('\n')});
  btn('캐릭터 버튼 진단',()=>{report.textContent=JSON.stringify(slots.map(x=>{const bs=[...document.querySelectorAll('.character-prompt-input-'+x.index+' > button')];return {index:x.index,buttons:bs.length,visible:bs.map(b=>b.getBoundingClientRect().width>10),prompt:!!editor('char'+x.index),uc:!!editor('char'+x.index+'uc')}}),null,2)});
+ btn('UC 탭 구조 진단',()=>{
+  const index=1, a=document.querySelector(selector('char'+index)),b=document.querySelector(selector('char'+index+'uc'));
+  if(!a||!b){report.textContent='캐릭터 1 입력칸 DOM 없음';return}
+  let scope=a.parentElement;while(scope&&!scope.contains(b))scope=scope.parentElement;
+  const describe=e=>({tag:e.tagName,cls:String(e.className||'').slice(0,150),role:e.getAttribute('role'),aria:e.getAttribute('aria-label'),title:e.getAttribute('title'),text:(e.textContent||'').trim().slice(0,90),html:e.outerHTML.slice(0,550),visible:visible(e)});
+  const chain=e=>{const arr=[];for(let n=e,i=0;n&&i<6;n=n.parentElement,i++)arr.push(describe(n));return arr};
+  const controls=scope?[...scope.querySelectorAll('button,[role="tab"],input[type="radio"],label')].slice(0,45).map(describe):[];
+  report.textContent=JSON.stringify({scope:scope?describe(scope):null,promptChain:chain(a),ucChain:chain(b),controls},null,2);
+ });
  btn('진단 결과 복사',()=>navigator.clipboard.writeText(report.textContent).catch(e=>report.textContent='복사 실패: '+e.message));
  report.textContent='전송 완료 · 캐릭터 '+slots.length+'명 · 입력칸 '+entries().length+'개\n등록 과정 없이 바로 순차 적용할 수 있어.';
  // Hide the panel completely by default. Reopen from the compact launcher.
@@ -226,7 +235,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.2.3\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.2.4\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
