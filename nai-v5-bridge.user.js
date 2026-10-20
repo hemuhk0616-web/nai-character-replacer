@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.2.2
+// @version      1.2.3
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -52,7 +52,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:58vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.2 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.3 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -81,7 +81,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='프롬프트 적용 또는 지우기를 선택해 줘. 나머지 설정은 아래에서 펼칠 수 있어.';hint.style.cssText='font-size:11px;color:#afbdd6;margin:4px 0';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.2.2 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.2.3 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -98,7 +98,7 @@ function panel(bundle){
  }
  const settings=bundle.generationSettings||{};
 
- const promptSection=makeSection('프롬프트 자동 입력 · V1.2.2');
+ const promptSection=makeSection('프롬프트 자동 입력 · V1.2.3');
  promptSection.open=true;
  report.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:12px system-ui;max-height:35vh;overflow:auto;background:#111b2b;padding:8px;border-radius:6px';
  const btn=(name,fn)=>{const b=document.createElement('button');b.textContent=name;b.style.cssText='padding:10px;margin:4px;background:#5276d8;color:white;border:0;border-radius:6px';b.onclick=fn;promptSection.append(b)};
@@ -111,18 +111,17 @@ function panel(bundle){
  let safeBatch=null;
  async function reveal(key){
   const m=/^char(\d+)(uc)?$/.exec(key);
+  const other=key==='uc'?'main':m?(m[2]?'char'+m[1]:'char'+m[1]+'uc'):'uc';
   if(m){
    const buttons=[...document.querySelectorAll('.character-prompt-input-'+m[1]+' > button')].filter(b=>b.getBoundingClientRect().width>10);
    if(buttons.length===1){buttons[0].click();await delay(230);}
-   else if(buttons.length===0&&m[1]==='1'){
-    // Character 1 has no selection button in the observed NovelAI layout.
-    // Proceed only when its exact editor is already visibly active.
-    const current=await waitVisible(key);
-    if(!current)return {ok:false,reason:'캐릭터 1 선택 버튼 없음 · 대상 입력칸도 비활성'};
+   else if(buttons.length===0){
+    // A character may already be selected and have no selection button.
+    // Either its prompt or UC must be visibly active before proceeding.
+    if(!visible(editor(key))&&!visible(editor(other)))return {ok:false,reason:'캐릭터 '+m[1]+' 선택 버튼 없음 · 프롬프트/UC 모두 비활성'};
    }else return {ok:false,reason:'캐릭터 '+m[1]+' 선택 버튼 '+buttons.length+'개'};
   }
-  if(!m&&await waitVisible(key))return {ok:true};
-  const other=key==='uc'?'main':m?(m[2]?'char'+m[1]:'char'+m[1]+'uc'):'uc';
+  if(await waitVisible(key))return {ok:true};
   const host=document.querySelector(selector(key)),counterpart=document.querySelector(selector(other));
   if(!host||!counterpart)return {ok:false,reason:'탭 입력창이 아직 생성되지 않음'};
   let scope=host.parentElement;
@@ -135,7 +134,7 @@ function panel(bundle){
    const negative=/\b(uc|undesired content|negative prompt)\b/i.test(t)||/네거티브|부정 프롬프트/i.test(t);
    return uc?negative:!negative&&(/\b(prompt|positive prompt)\b/i.test(t)||/일반 프롬프트/.test(t));
   });
-  if(candidates.length!==1){if(await waitVisible(key))return {ok:true};return {ok:false,reason:'탭 버튼 식별 실패 ('+candidates.length+'개)'};}
+  if(candidates.length!==1)return {ok:false,reason:'탭 버튼 식별 실패 ('+candidates.length+'개)'};
   candidates[0].click();
   return await waitVisible(key)?{ok:true}:{ok:false,reason:'탭 클릭 후 입력창 활성화 실패'};
  }
@@ -227,7 +226,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.2.2\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.2.3\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
