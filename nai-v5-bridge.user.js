@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.0.0
+// @version      1.0.1
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -29,42 +29,39 @@ function panel(bundle){
  document.getElementById('nai-bridge-launcher')?.remove();
  const root=document.createElement('div');root.id='nai-bridge-panel';
  root.style.cssText='position:fixed;top:50%;right:8px;transform:translateY(-50%);z-index:2147483647;width:min(94vw,420px);max-height:88vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
- const title=document.createElement('button');
- title.textContent='NAI Bridge v1.0.0 · 설정 확인';
- title.style.cssText='display:block;width:100%;padding:6px;background:#304567;color:white;border:0;text-align:left;font:bold 14px system-ui';
- let expanded=false;
- const toggle=()=>{
-  expanded=!expanded;
-  root.style.maxHeight=expanded?'88vh':'44px';
-  root.style.overflow=expanded?'auto':'hidden';
-  title.textContent=expanded?'NAI Bridge v1.0.0 ▴ 접기':'NAI Bridge v1.0.0 ▾ 펼치기';
- };
- title.addEventListener('click',toggle);
- root.append(title);
+ const header=document.createElement('div');
+ header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.0.1 · 설정 확인';
+ title.style.cssText='font:bold 14px system-ui';
+ const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
+ close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
+ close.onclick=()=>{root.style.display='none';document.querySelectorAll('.nai-bridge-debug-pin').forEach(e=>e.remove())};
+ header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='원본 이미지 설정을 확인하고 NovelAI에서 직접 맞춰 줘. 설정값 자동 적용은 지원하지 않아.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.0.0 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.0.1 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
   const summary=document.createElement('summary');summary.textContent=name;summary.style.cssText='font-weight:700;cursor:pointer;padding:3px';d.append(summary);root.append(d);return d;
  }
- function settingLine(parent,name,value){
+ function settingLine(parent,name,value,copyable=false){
   if(value===undefined||value===null||value==='')return;
   const line=document.createElement('div');
   line.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #344055';
   const label=document.createElement('span');label.textContent=name;label.style.color='#afbdd6';
   const val=document.createElement('span');val.textContent=typeof value==='boolean'?(value?'ON':'OFF'):String(value);val.style.cssText='font-weight:650;text-align:right;overflow-wrap:anywhere;font-variant-numeric:tabular-nums';
+  if(copyable){val.style.cssText+=';cursor:pointer;color:#91b8ff;text-decoration:underline;text-underline-offset:3px';val.title='눌러서 복사';val.setAttribute('role','button');val.tabIndex=0;const copy=async()=>{try{await navigator.clipboard.writeText(String(value));val.textContent='복사 완료 ✓';setTimeout(()=>{if(val.isConnected)val.textContent=String(value)},1100)}catch(e){report.textContent='Seed 복사 실패: '+e.message}};val.addEventListener('click',copy);val.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();copy()}})}
   line.append(label,val);parent.append(line);
  }
  const settings=bundle.generationSettings||{};
  const imageSection=makeSection('① 이미지 설정 · Image');
  imageSection.open=true;
  settingLine(imageSection,'Width × Height',settings.width&&settings.height?settings.width+' × '+settings.height:undefined);
- settingLine(imageSection,'Seed',settings.seed);
+ settingLine(imageSection,'Seed',settings.seed,true);
  const aiSection=makeSection('② AI 설정 · Generation');
  aiSection.open=true;
- for(const [key,name] of [['steps','Steps'],['scale','Guidance / Scale'],['sampler','Sampler'],['noise_schedule','Noise Schedule'],['cfg_rescale','CFG Rescale']])settingLine(aiSection,name,settings[key]);
+ for(const [key,name] of [['steps','Steps'],['scale','Guidance / Scale'],['sampler','Sampler'],['noise_schedule','Noise Schedule'],['cfg_rescale','CFG Rescale']])settingLine(aiSection,name,key==='scale'&&settings[key]!==undefined&&Number.isFinite(Number(settings[key]))?Number(settings[key]).toFixed(1):settings[key]);
  const advancedSection=makeSection('③ Advanced 설정');
  for(const [key,name] of [['sm','SM'],['sm_dyn','SM Dynamic'],['dynamic_thresholding','Dynamic Thresholding'],['skip_cfg_above_sigma','Skip CFG Above Sigma'],['variety_plus','Variety+']])settingLine(advancedSection,name,settings[key]);
  const known=new Set(['width','height','seed','steps','scale','sampler','noise_schedule','cfg_rescale','sm','sm_dyn','dynamic_thresholding','skip_cfg_above_sigma','variety_plus']);
@@ -83,6 +80,16 @@ function panel(bundle){
  posSection.append(note);
  const promptSection=makeSection('⑤ 프롬프트 전송 · 수동 지정');
  promptSection.open=false;
+ const settingsSections=[imageSection,aiSection,advancedSection,posSection];
+ const settingsVisibility=()=>{
+  const active=promptSection.open;
+  for(const section of settingsSections)section.style.display=active?'none':'';
+  hint.style.display=active?'none':'';
+  version.style.display=active?'none':'';
+  if(active){report.textContent='프롬프트 전송 도구 · NovelAI 입력칸을 직접 지정하거나 복사해 줘.';}
+ };
+ promptSection.addEventListener('toggle',settingsVisibility);
+ settingsVisibility();
  function inspectEditors(){
   document.querySelectorAll('.nai-bridge-debug-pin').forEach(e=>e.remove());
   const els=fields().filter(e=>!root.contains(e));
@@ -157,7 +164,7 @@ function panel(bundle){
  btn('캐릭터별 프롬프트 보기',()=>{
   report.replaceChildren();for(const slot of bundle.characterPrompts||[]){const p=document.createElement('p');p.textContent='캐릭터 '+slot.index;const t=document.createElement('textarea');t.value=slot.prompt;t.readOnly=true;t.style.cssText='width:100%;min-height:80px';report.append(p,t);const b=document.createElement('button');b.textContent='복사';b.onclick=()=>navigator.clipboard.writeText(slot.prompt);report.append(b)}
  });
- btn('닫기',()=>{root.style.display='none';});
+
  // Hide the panel completely by default. Reopen from the compact launcher.
  root.style.display='none';
  document.body.append(root);
@@ -214,7 +221,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.0.0\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.0.1\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
