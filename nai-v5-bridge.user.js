@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.0.9
+// @version      1.1.0
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -52,7 +52,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:88vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.0.9 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.1.0 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -81,7 +81,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='원본 이미지 설정을 확인하고 NovelAI에서 직접 맞춰 줘. 설정값 자동 적용은 지원하지 않아.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.0.9 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.1.0 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -234,7 +234,42 @@ function panel(bundle){
   report.textContent='안전 모드: 자동 입력 중지. V0.9.7에서 메인과 UC가 뒤바뀐 문제가 확인됐어. 아래 직접 지정 버튼으로 입력칸을 선택해 줘.';
  }
 
- btn('원터치 전체 적용 · 등록된 칸만',applyAll);
+ let sequenceCleanup=null;
+ function beginSequential(){
+  if(sequenceCleanup){sequenceCleanup();sequenceCleanup=null}
+  const all=entries(),map=readMap(),done=new Set();
+  const missing=all.filter(x=>!map[x.key]);
+  if(missing.length){report.textContent='먼저 입력칸 등록 필요: '+missing.map(x=>x.name).join(', ');return}
+  const bar=document.createElement('div');
+  bar.id='nai-bridge-sequence';
+  bar.style.cssText='position:fixed;bottom:70px;left:8px;right:8px;z-index:2147483647;background:#17243a;color:white;border:2px solid #91b8ff;border-radius:12px;padding:10px;display:flex;align-items:center;gap:8px;font:12px system-ui;box-shadow:0 4px 20px #000a';
+  const info=document.createElement('span');info.style.cssText='flex:1;white-space:normal';
+  const cancel=document.createElement('button');cancel.textContent='중지';cancel.style.cssText='padding:9px;background:#8c3650;color:white;border:0;border-radius:7px';
+  bar.append(info,cancel);document.body.append(bar);
+  const render=msg=>{info.textContent='순차 적용 '+done.size+'/'+all.length+' · '+msg};
+  const stop=()=>{document.removeEventListener('pointerdown',onPointer,true);bar.remove();root.style.display='none';launcher.style.display='block';sequenceCleanup=null;report.textContent='순차 적용 종료 · '+done.size+'/'+all.length+'개 입력 시도 완료'};
+  sequenceCleanup=stop;cancel.onclick=stop;
+  root.style.display='none';launcher.style.display='none';
+  render('NovelAI에서 적용할 입력칸을 직접 터치해 줘');
+  function onPointer(e){
+   if(bar.contains(e.target)||root.contains(e.target))return;
+   const el=e.target.closest?.('textarea,input[type="text"],[contenteditable="true"],[role="textbox"]');
+   if(!el||!el.getClientRects().length)return;
+   const candidates=all.filter(x=>!done.has(x.key)&&matchesSignature(el,map[x.key]));
+   const registered=all.filter(x=>matchesSignature(el,map[x.key]));
+   if(candidates.length!==1||registered.length!==1){render('입력칸 식별 불확실 · 적용 안 함. 다른 칸을 선택하거나 중지해 줘');return}
+   const item=candidates[0];
+   const matches=fields().filter(x=>matchesSignature(x,map[item.key]));
+   if(matches.length!==1||matches[0]!==el){render(item.name+' 식별자 중복 · 적용 안 함');return}
+   e.preventDefault();e.stopImmediatePropagation();
+   try{setReactValue(el,item.value);done.add(item.key);render(item.name+' 적용 시도 완료 · 다음 칸을 열어 터치해 줘');
+    if(done.size===all.length){stop();report.textContent='전체 '+all.length+'개 입력 시도 완료. NovelAI 화면에서 각 값을 확인해 줘.'}
+   }catch(err){render(item.name+' 실패: '+err.message+' · 해당 칸은 미완료')}
+  }
+  document.addEventListener('pointerdown',onPointer,true);
+ }
+ btn('모바일 순차 적용 시작 · 권장',beginSequential);
+ btn('기존 전체 동시 적용 · 비권장',applyAll);
  btn('입력칸 등록 현황',()=>{const map=readMap();report.textContent=entries().map(x=>x.name+': '+(map[x.key]?'등록됨':'미등록')).join('\n')+'\n등록된 입력칸도 현재 화면에서 고유하게 식별되지 않으면 적용하지 않아.'});
  btn('입력칸 등록 초기화',()=>{if(confirm('저장된 입력칸 식별 정보를 모두 지울까?')){localStorage.removeItem(mapKey);report.textContent='입력칸 등록 초기화 완료'}});
  btn('입력창 번호 표시 · 진단',inspectEditors);
@@ -332,7 +367,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.0.9\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.1.0\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
