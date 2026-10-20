@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.0.3
+// @version      1.0.4
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -50,7 +50,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:88vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.0.3 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.0.4 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -79,7 +79,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='원본 이미지 설정을 확인하고 NovelAI에서 직접 맞춰 줘. 설정값 자동 적용은 지원하지 않아.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.0.3 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.0.4 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -198,7 +198,25 @@ function panel(bundle){
  });
  btn('메인 입력칸 직접 지정',()=>selectTarget('메인',bundle.description||''));
  btn('UC 입력칸 직접 지정',()=>selectTarget('UC',bundle.negativePrompt||''));
- btn('캐릭터 1 입력칸 직접 지정',()=>selectTarget('캐릭터 1',(bundle.characterPrompts||[])[0]?.prompt||''));
+ const slotTools=document.createElement('div');
+ slotTools.style.cssText='margin-top:10px;border-top:1px solid #40506b;padding-top:7px';
+ promptSection.append(slotTools);
+ const characterEntries=bundle.characterPrompts||[];
+ if(!characterEntries.length){const empty=document.createElement('p');empty.textContent='원본에서 캐릭터 슬롯을 찾지 못했어.';slotTools.append(empty);}
+ for(const slot of characterEntries){
+  const section=document.createElement('details');
+  section.style.cssText='border:1px solid #40506b;border-radius:8px;margin:6px 0;padding:7px';
+  const summary=document.createElement('summary');summary.textContent='캐릭터 '+slot.index+' · 프롬프트 / UC';section.append(summary);
+  function action(label,fn){
+   const button=document.createElement('button');button.textContent=label;button.style.cssText='padding:8px;margin:4px 3px;background:#5276d8;color:white;border:0;border-radius:6px;font-size:12px';button.onclick=fn;section.append(button);
+  }
+  action('프롬프트 직접 입력',()=>selectTarget('캐릭터 '+slot.index+' 프롬프트',slot.prompt||''));
+  action('프롬프트 복사',()=>navigator.clipboard.writeText(slot.prompt||'').then(()=>{report.textContent='캐릭터 '+slot.index+' 프롬프트 복사 완료'}).catch(e=>{report.textContent='복사 실패: '+e.message}));
+  action('UC 직접 입력',()=>selectTarget('캐릭터 '+slot.index+' UC',slot.negativePrompt||''));
+  action('UC 복사',()=>navigator.clipboard.writeText(slot.negativePrompt||'').then(()=>{report.textContent='캐릭터 '+slot.index+' UC 복사 완료'}).catch(e=>{report.textContent='복사 실패: '+e.message}));
+  if(!slot.negativePrompt){const note=document.createElement('small');note.textContent='원본 캐릭터 UC 없음 · 입력하면 해당 칸이 비워짐';section.append(note);}
+  slotTools.append(section);
+ }
  btn('메인 복사',async()=>{try{await navigator.clipboard.writeText(bundle.description||'');report.textContent='메인 프롬프트 복사 완료'}catch(e){report.textContent='복사 실패: '+e.message}});
  btn('UC 복사',async()=>{try{await navigator.clipboard.writeText(bundle.negativePrompt||'');report.textContent='UC 복사 완료'}catch(e){report.textContent='복사 실패: '+e.message}});
  btn('캐릭터별 프롬프트 보기',()=>{
@@ -261,7 +279,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.0.3\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.0.4\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
