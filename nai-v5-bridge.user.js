@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.2.10
+// @version      1.2.11
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -52,7 +52,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:58vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.10 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.11 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -81,7 +81,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='프롬프트 적용 또는 지우기를 선택해 줘. 나머지 설정은 아래에서 펼칠 수 있어.';hint.style.cssText='font-size:11px;color:#afbdd6;margin:4px 0';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.2.10 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.2.11 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -98,7 +98,25 @@ function panel(bundle){
  }
  const settings=bundle.generationSettings||{};
 
- const promptSection=makeSection('프롬프트 자동 입력 · V1.2.10');
+ const settingsSection=makeSection('생성 설정 · Seed / Guidance / Sampler');
+ settingsSection.open=true;
+ const settingsNote=document.createElement('p');
+ settingsNote.textContent='원본 메타데이터의 생성 설정이야. 값은 NovelAI에서 직접 적용해 줘.';
+ settingsNote.style.cssText='font-size:11px;color:#afbdd6;margin:5px 0';
+ settingsSection.append(settingsNote);
+ const settingItems=[['Seed','seed',true],['Steps','steps'],['Guidance / Scale','scale'],['Sampler','sampler'],['Noise Schedule','noise_schedule'],['Width','width'],['Height','height'],['SM','sm'],['SM Dynamic','sm_dyn'],['CFG Rescale','cfg_rescale'],['Dynamic Thresholding','dynamic_thresholding'],['Skip CFG Above Sigma','skip_cfg_above_sigma'],['Variety+','variety_plus']];
+ let foundSettings=0;
+ for(const [label,key,copyable] of settingItems){
+  if(settings[key]!==undefined&&settings[key]!==null&&settings[key]!==''){settingLine(settingsSection,label,settings[key],!!copyable);foundSettings++}
+ }
+ if(!foundSettings){const empty=document.createElement('p');empty.textContent='전송된 생성 설정이 없어. 리플레이서에서 PNG 메타데이터의 Seed·Guidance 값을 확인해 줘.';empty.style.cssText='font-size:12px;color:#e9bd81';settingsSection.append(empty)}
+ const settingsCopy=document.createElement('button');
+ settingsCopy.textContent='생성 설정 JSON 복사';
+ settingsCopy.style.cssText='padding:8px;margin-top:7px;background:#344d78;color:white;border:0;border-radius:6px';
+ settingsCopy.onclick=()=>navigator.clipboard.writeText(JSON.stringify(settings,null,2)).then(()=>{report.textContent='생성 설정 복사 완료'}).catch(e=>{report.textContent='설정 복사 실패: '+e.message});
+ settingsSection.append(settingsCopy);
+
+ const promptSection=makeSection('프롬프트 자동 입력 · V1.2.11');
  promptSection.open=true;
  report.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:12px system-ui;max-height:35vh;overflow:auto;background:#111b2b;padding:8px;border-radius:6px';
  const btn=(name,fn)=>{const b=document.createElement('button');b.textContent=name;b.style.cssText='padding:10px;margin:4px;background:#5276d8;color:white;border:0;border-radius:6px';b.onclick=fn;promptSection.append(b)};
@@ -284,7 +302,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v1.2.10\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.2.11\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
