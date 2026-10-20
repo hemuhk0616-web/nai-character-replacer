@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      0.9.6
+// @version      0.9.7
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -30,20 +30,20 @@ function panel(bundle){
  const root=document.createElement('div');root.id='nai-bridge-panel';
  root.style.cssText='position:fixed;top:12px;right:12px;z-index:2147483647;width:min(92vw,380px);max-height:44px;overflow:hidden;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const title=document.createElement('button');
- title.textContent='NAI Bridge v0.9.6 ▾ 펼치기';
+ title.textContent='NAI Bridge v0.9.7 ▾ 펼치기';
  title.style.cssText='display:block;width:100%;padding:6px;background:#304567;color:white;border:0;text-align:left;font:bold 14px system-ui';
  let expanded=false;
  const toggle=()=>{
   expanded=!expanded;
   root.style.maxHeight=expanded?'85vh':'44px';
   root.style.overflow=expanded?'auto':'hidden';
-  title.textContent=expanded?'NAI Bridge v0.9.6 ▴ 접기':'NAI Bridge v0.9.6 ▾ 펼치기';
+  title.textContent=expanded?'NAI Bridge v0.9.7 ▴ 접기':'NAI Bridge v0.9.7 ▾ 펼치기';
  };
  title.addEventListener('click',toggle);
  root.append(title);
  const hint=document.createElement('p');hint.textContent='자동 입력은 정확히 식별된 칸에만 실행돼. 실패하면 입력칸 직접 지정 또는 복사를 사용해 줘. 생성은 직접 눌러.';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v0.9.6 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v0.9.7 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function inspectEditors(){
   document.querySelectorAll('.nai-bridge-debug-pin').forEach(e=>e.remove());
   const els=fields().filter(e=>!root.contains(e));
@@ -95,49 +95,33 @@ function panel(bundle){
 
  async function autoTransfer(){
   await delay(2400);
-  const candidates=fields().filter(e=>!root.contains(e));
-  const labelText=e=>[e.getAttribute('aria-label'),e.getAttribute('placeholder'),e.getAttribute('data-testid'),e.closest('[aria-label]')?.getAttribute('aria-label')].filter(Boolean).join(' ').toLowerCase();
-  const neg=/negative|undesired|ネガティブ|부정|uc(?:\b|_)/i;
-  const main=/prompt|プロンプト|프롬프트|description/i;
-  const negative=candidates.filter(e=>neg.test(labelText(e)));
-  const positive=candidates.filter(e=>main.test(labelText(e))&&!neg.test(labelText(e))&&!/character|キャラクター|캐릭터/i.test(labelText(e)));
-  // NovelAI mobile editor is often an unlabeled contenteditable DIV.
-  // Only infer the main field when its own or nearby placeholder explicitly
-  // says "Tap to add a prompt". Never infer UC from DOM order.
-  const hint=/tap to add a prompt|add a prompt|프롬프트를 입력|プロンプトを入力/i;
-  const mainHints=candidates.filter(e=>{
-   const own=[e.getAttribute('data-placeholder'),e.getAttribute('aria-placeholder'),e.getAttribute('placeholder')].filter(Boolean).join(' ');
-   if(hint.test(own))return true;
-   const parent=e.parentElement;
-   if(!parent)return false;
-   const near=[...parent.querySelectorAll('[data-placeholder],[aria-placeholder],[placeholder]')].map(n=>[n.getAttribute('data-placeholder'),n.getAttribute('aria-placeholder'),n.getAttribute('placeholder')].filter(Boolean).join(' '));
-   return near.some(t=>hint.test(t));
-  });
-  // Locate visible section headings and map editors to their closest preceding heading.
-  // Only accept an unambiguous main/UC pair; do not assume DOM index order.
-  const headings=[...document.querySelectorAll('h1,h2,h3,h4,h5,h6,label,[role="heading"]')]
-   .filter(e=>e.getClientRects().length&&!root.contains(e))
-   .map(e=>({el:e,text:(e.textContent||'').trim().toLowerCase()}))
-   .filter(x=>x.text.length>0&&x.text.length<100);
-  function nearestHeading(editor){
-   const y=editor.getBoundingClientRect().top;
-   const prior=headings.filter(h=>h.el.getBoundingClientRect().top<=y+8);
-   prior.sort((a,b)=>b.el.getBoundingClientRect().top-a.el.getBoundingClientRect().top);
-   return prior[0]?.text||'';
+  const editors=[...document.querySelectorAll('div.ProseMirror[contenteditable="true"]')].filter(e=>e.getClientRects().length&&!e.closest('#nai-bridge-panel'));
+  if(editors.length!==4){
+   report.textContent='자동 전송 보류: NovelAI 입력창이 '+editors.length+'개 감지됨 (확인된 구조는 4개). 잘못된 칸에 입력하지 않도록 중단했어.';
+   return;
   }
-  const headingUC=candidates.filter(e=>/undesired content|negative prompt|ネガティブ|부정 프롬프트/i.test(nearestHeading(e)));
-  const headingMain=candidates.filter(e=>/^(?:prompt|main prompt|image prompt|プロンプト|메인 프롬프트)$/i.test(nearestHeading(e)));
-  const safeMain=positive.length===1?positive[0]:(mainHints.length===1?mainHints[0]:(headingMain.length===1?headingMain[0]:null));
-  const safeUC=negative.length===1?negative[0]:(headingUC.length===1?headingUC[0]:null);
-  const log=[];
-  if(safeMain&&safeMain!==safeUC){setReactValue(safeMain,bundle.description||'');log.push('메인 입력 시도 (안내 문구 기반)')}else log.push('메인 입력칸 미확인 ('+positive.length+'개 이름 후보, '+mainHints.length+'개 안내 문구 후보)');
-  if(safeUC&&safeUC!==safeMain){setReactValue(safeUC,bundle.negativePrompt||'');log.push('UC 입력 시도 (영역 제목 기반)')}else log.push('UC 입력칸 미확인 ('+negative.length+'개 이름 후보, '+headingUC.length+'개 영역 후보)');
-  const chars=(bundle.characterPrompts||[]).filter(x=>x.prompt);
-  if(chars.length)log.push('캐릭터 '+chars.length+'개: 슬롯 미확인, 자동 입력 보류');
-  await delay(300);
-  const fieldInfo=candidates.map((e,i)=>`${i+1}. ${e.tagName.toLowerCase()} ${labelText(e).slice(0,85)||'(이름 없음)'} / 영역: ${nearestHeading(e).slice(0,55)||'(없음)'} [${String(e.value??e.textContent??'').length}자]`);
-  report.textContent=log.join('\n')+'\n\n발견된 입력칸 '+candidates.length+'개:\n'+fieldInfo.join('\n')+'\n\n잘못된 칸에 입력되지 않았는지 확인해 줘.';
+  // User-verified NovelAI V5 mobile DOM order with one character:
+  // 1 base prompt, 2 base UC, 3 character prompt, 4 character UC.
+  const slots=bundle.characterPrompts||[];
+  if(slots.length>1){
+   report.textContent='자동 전송 보류: 캐릭터 슬롯이 '+slots.length+'개라 1인 구조와 달라. 수동 지정이 필요해.';
+   return;
+  }
+  const jobs=[
+   ['메인',editors[0],bundle.description],
+   ['메인 UC',editors[1],bundle.negativePrompt],
+   ['캐릭터 1',editors[2],slots[0]?.prompt]
+  ];
+  const results=[];
+  for(const [name,el,value] of jobs){
+   if(typeof value!=='string'||!value.trim()){results.push(name+': 전송할 내용 없음');continue;}
+   setReactValue(el,value);
+   results.push(name+': 입력 시도 ('+value.length+'자)');
+  }
+  results.push('캐릭터 1 UC: 전송 데이터가 없어 원본 유지');
+  report.textContent=results.join('\\n')+'\\n\\n생성 전에 각 입력창을 확인해 줘. 화면 구조가 달라지면 자동 전송을 중단하도록 설정했어.';
  }
+
  btn('입력창 번호 표시 · 진단',inspectEditors);
  btn('메인 자동 입력 (확실한 칸만)',()=>{
   const el=strictField('메인');
@@ -213,7 +197,7 @@ function showPending(){
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='display:none';
-  mark.onclick=()=>alert('NAI Bridge v0.9.6\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v0.9.7\n'+status+'\n주소 길이: '+location.href.length+'자');
   document.body.append(mark);
  }
  mark.style.display='none';
