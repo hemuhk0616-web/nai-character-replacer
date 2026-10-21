@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         NAI V5 Prompt Bridge (experimental)
 // @namespace    https://github.com/hemuhk0616-web/nai-character-replacer
-// @version      1.2.14
+// @version      1.2.15
 // @description  Import a prompt bundle from NAI Character Replacer into NovelAI V5. Review before generating.
 // @updateURL    https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
 // @downloadURL  https://raw.githubusercontent.com/hemuhk0616-web/nai-character-replacer/main/nai-v5-bridge.user.js
@@ -15,6 +15,11 @@
 const PREFIX='#nai-replacer=';
 if(window.__naiBridgeActiveV109)return;
 window.__naiBridgeActiveV109=true;
+const bridgeTrace=[];
+function traceBridge(step,detail=''){bridgeTrace.push(new Date().toLocaleTimeString()+' '+step+(detail?' · '+detail:''));if(bridgeTrace.length>20)bridgeTrace.shift()}
+traceBridge('스크립트 시작',location.href.slice(0,100));
+window.addEventListener('error',e=>traceBridge('JS 오류',e.message||'unknown'));
+window.addEventListener('unhandledrejection',e=>traceBridge('Promise 오류',String(e.reason||'unknown')));
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 function setReactValue(el,value){
  const text=String(value??'');
@@ -52,7 +57,7 @@ function panel(bundle){
  root.style.cssText='position:fixed;top:72px;right:8px;transform:none;z-index:2147483647;width:min(94vw,420px);max-height:58vh;overflow:auto;background:#1b2332;color:white;border:2px solid #7b9cff;border-radius:12px;padding:14px;font:13px system-ui;box-shadow:0 6px 30px #000b';
  const header=document.createElement('div');
  header.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-14px;z-index:2;background:#1b2332;padding:6px 0 9px';
- const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.14 · 설정 확인';
+ const title=document.createElement('strong');title.textContent='NAI Bridge v1.2.15 · 설정 확인';
  title.style.cssText='font:bold 14px system-ui';
  const close=document.createElement('button');close.textContent='✕';close.title='패널 닫기';
  close.style.cssText='flex-shrink:0;padding:5px 10px;border-radius:7px;background:#34445f;color:white;border:1px solid #60718c;font:bold 16px system-ui';
@@ -81,7 +86,7 @@ function panel(bundle){
  header.append(title,close);root.append(header);
  const hint=document.createElement('p');hint.textContent='프롬프트 적용 또는 지우기를 선택해 줘. 나머지 설정은 아래에서 펼칠 수 있어.';hint.style.cssText='font-size:11px;color:#afbdd6;margin:4px 0';root.append(hint);
  const report=document.createElement('div');report.style.whiteSpace='pre-wrap';root.append(report);
- const version=document.createElement('div');version.textContent='Bridge v1.2.14 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
+ const version=document.createElement('div');version.textContent='Bridge v1.2.15 · 입력창 진단';version.style.cssText='font-size:12px;color:#a9c7ff;margin:5px 0';root.append(version);
  function makeSection(name){
   const d=document.createElement('details');
   d.style.cssText='border:1px solid #40506b;border-radius:9px;margin:8px 0;padding:9px;background:#121b29';
@@ -116,7 +121,7 @@ function panel(bundle){
  settingsCopy.onclick=()=>navigator.clipboard.writeText(JSON.stringify(settings,null,2)).then(()=>{report.textContent='생성 설정 복사 완료'}).catch(e=>{report.textContent='설정 복사 실패: '+e.message});
  settingsSection.append(settingsCopy);
 
- const promptSection=makeSection('프롬프트 자동 입력 · V1.2.14');
+ const promptSection=makeSection('프롬프트 자동 입력 · V1.2.15');
  promptSection.open=true;
  report.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font:12px system-ui;max-height:35vh;overflow:auto;background:#111b2b;padding:8px;border-radius:6px';
  const btn=(name,fn)=>{const b=document.createElement('button');b.textContent=name;b.style.cssText='padding:10px;margin:4px;background:#5276d8;color:white;border:0;border-radius:6px';b.onclick=fn;promptSection.append(b)};
@@ -287,22 +292,25 @@ function panel(bundle){
 let pending=null;
 let status='전송 데이터 없음';
 function captureHash(){
+ traceBridge('주소 확인',location.hash.startsWith(PREFIX)?'전송 해시 있음':'전송 해시 없음');
  if(!location.hash.startsWith(PREFIX)){status='전송 데이터 없음 (주소에 nai-replacer 없음)';return}
  try{
   const encoded=location.hash.slice(PREFIX.length);
   status='전송 주소 감지 ('+encoded.length+'자)';
   pending=JSON.parse(decodeURIComponent(encoded));
+  traceBridge('데이터 파싱 성공',encoded.length+'자');
   status='전송 데이터 수신 성공';
   history.replaceState(null,'',location.pathname+location.search);
- }catch(e){status='전송 데이터 오류: '+e.message;pending={__error:status}}
+ }catch(e){status='전송 데이터 오류: '+e.message;traceBridge('파싱 실패',e.message);pending={__error:status}}
 }
 function showPending(){
- if(!document.body)return;
+ if(!document.body){traceBridge('body 대기');return}
+ traceBridge('화면 표시 시도');
  let mark=document.getElementById('nai-bridge-ready');
  if(!mark){
   mark=document.createElement('button');mark.id='nai-bridge-ready';
   mark.style.cssText='position:fixed;bottom:8px;left:8px;z-index:2147483645;background:#263a55;color:white;border:1px solid #8ab2fa;border-radius:8px;padding:5px 8px;font:11px system-ui;opacity:.8';
-  mark.onclick=()=>alert('NAI Bridge v1.2.14\n'+status+'\n주소 길이: '+location.href.length+'자');
+  mark.onclick=()=>alert('NAI Bridge v1.2.15\n'+status+'\n주소 길이: '+location.href.length+'자\n'+bridgeTrace.join('\n'));
   document.body.append(mark);
  }
  mark.style.display='block';
@@ -310,9 +318,10 @@ function showPending(){
  if(pending){
   const data=pending;pending=null;
   if(data.__error){mark.textContent='NAI Bridge · 오류';return}
-  try{panel(data);mark.textContent='NAI Bridge · 전송 패널 열림'}catch(e){pending=data;status='패널 오류: '+e.message;mark.textContent='NAI Bridge · 오류 (눌러서 확인)'}
+  try{traceBridge('패널 생성 시작');panel(data);traceBridge('패널 생성 성공');mark.textContent='NAI Bridge · 전송 패널 열림'}catch(e){pending=data;status='패널 오류: '+e.message;traceBridge('패널 오류',e.message);mark.textContent='NAI Bridge · 오류 (눌러서 확인)'}
  }
 }
+traceBridge('이벤트 등록 시작');
 captureHash();
 document.addEventListener('DOMContentLoaded',showPending);
 window.addEventListener('load',showPending);
@@ -326,4 +335,5 @@ const bridgeWatch=new MutationObserver(()=>{
  setTimeout(()=>{bridgeWatchScheduled=false;showPending()},100);
 });
 bridgeWatch.observe(document.documentElement,{childList:true,subtree:true});
+traceBridge('초기화 완료');
 })();
