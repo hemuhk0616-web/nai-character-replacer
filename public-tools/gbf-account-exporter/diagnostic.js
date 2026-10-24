@@ -1,12 +1,22 @@
-/* GBF v1.4: passive collection with progress and complete weapon stats */
+/* GBF v1.5: passive inventory collector, fast change detection */
 (()=>{try{
-const k="gbf-passive-v1.4";
-const numeric=x=>x==null||x===""?null:Number.isFinite(Number(x))?Number(x):null;
-const identity=x=>x==null?null:String(x);
-const read=()=>{const v=window.Game?.view;return{page:String(v?.page??""),items:(v?.listItemParams?.item||[]).map(item=>{const p=item.param||{},m=item.master||{};return{weapon_id:identity(m.id),instance_id:identity(p.id),image_id:identity(p.image_id),level:numeric(p.level),attack:numeric(p.attack),hp:numeric(p.hp),bonus_attack:numeric(p.bonus_attack),bonus_hp:numeric(p.bonus_hp),skill_level:numeric(p.skill_level),evolution:numeric(p.evolution),phase:numeric(p.phase),rarity:numeric(m.rarity),is_locked:p.is_locked===true||p.is_locked===1||p.is_locked==="1",is_used:item.is_used===true}})}};
-const stored=JSON.parse(sessionStorage.getItem(k)||'{"pages":{},"weapons":{}}');
-const capture=()=>{const r=read();if(!r.page||!r.items.length)return;stored.pages[r.page]=r.items.length;for(const item of r.items)if(item.instance_id)stored.weapons[item.instance_id]=item;sessionStorage.setItem(k,JSON.stringify(stored))};
-const exportData=()=>{capture();const total=Math.max(0,...[...document.querySelectorAll("li.prt-page-number[page]")].map(e=>Number(e.getAttribute("page"))||0));const visited=Object.keys(stored.pages).map(Number).sort((a,b)=>a-b);const missing=Array.from({length:total},(_,i)=>i+1).filter(x=>!stored.pages[x]);const data={totalPages:total,visitedPages:visited,missingPages:missing,completionPercent:total?Math.round(visited.length/total*100):null,schema:"gbf-account-exporter/passive-v1.3",pages:stored.pages,uniqueCount:Object.keys(stored.weapons).length,weapons:Object.values(stored.weapons)};const u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=u;a.download="gbf-passive-v1.4.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000)};
-if(window.__gbfPassiveCollectorV14){window.__gbfPassiveCollectorV14.stop();exportData();alert("GBF v1.4 saved "+Object.keys(stored.weapons).length+" weapons; pages "+Object.keys(stored.pages).length);return}
-capture();const timer=setInterval(capture,750);window.__gbfPassiveCollectorV14={stop:()=>{clearInterval(timer);delete window.__gbfPassiveCollectorV14}};alert("GBF v1.4 recording. Navigate pages normally, then run bookmark again to export.");
-}catch(e){alert("GBF v1.4: "+e.message)}})();
+const KEY="gbf-passive-v1.5",OLD="gbf-passive-v1.4";
+const parse=s=>{try{return JSON.parse(s)}catch{return null}};
+const data=parse(sessionStorage.getItem(KEY))||parse(sessionStorage.getItem(OLD))||{pages:{},weapons:{}};
+data.pages=data.pages||{};data.weapons=data.weapons||{};
+const num=x=>x==null||x===""?null:Number.isFinite(Number(x))?Number(x):null;
+const str=x=>x==null?null:String(x);
+const read=()=>{const v=window.Game?.view;return{page:Number(v?.page),items:(v?.listItemParams?.item||[]).map(item=>{const p=item?.param||{},m=item?.master||{};return{weapon_id:str(m.id),instance_id:str(p.id),image_id:str(p.image_id),level:num(p.level),attack:num(p.attack),hp:num(p.hp),bonus_attack:num(p.bonus_attack),bonus_hp:num(p.bonus_hp),skill_level:num(p.skill_level),evolution:num(p.evolution),phase:num(p.phase),rarity:num(m.rarity),is_locked:[true,1,"1"].includes(p.is_locked),is_used:[true,1,"1"].includes(item.is_used)}})}};
+let last="",lastPage=0,total=0;
+const capture=()=>{const r=read();if(!Number.isInteger(r.page)||r.page<1||!r.items.length)return;const ids=r.items.map(x=>x.instance_id).filter(Boolean);if(!ids.length)return;const fingerprint=r.page+":"+ids.join(",");if(fingerprint===last)return;last=fingerprint;lastPage=r.page;data.pages[r.page]=ids.length;for(const item of r.items)if(item.instance_id)data.weapons[item.instance_id]=item;sessionStorage.setItem(KEY,JSON.stringify(data))};
+const getTotal=()=>{const nums=[...document.querySelectorAll("li.prt-page-number[page]")].map(e=>Number(e.getAttribute("page"))).filter(Number.isInteger);total=Math.max(total,0,...nums)};
+const save=()=>{capture();getTotal();const visited=Object.keys(data.pages).map(Number).sort((a,b)=>a-b),missing=Array.from({length:total},(_,i)=>i+1).filter(p=>!data.pages[p]);const out={schema:"gbf-account-exporter/passive-v1.5",totalPages:total||null,visitedPages:visited,missingPages:missing,completionPercent:total?Math.round(visited.length/total*100):null,pages:data.pages,uniqueCount:Object.keys(data.weapons).length,weapons:Object.values(data.weapons)};const url=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=url;a.download="gbf-passive-v1.5.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)};
+if(window.__gbfPassiveCollector){window.__gbfPassiveCollector.stop();save();alert("GBF v1.5 saved: "+Object.keys(data.weapons).length+" weapons, "+Object.keys(data.pages).length+" pages");return}
+capture();getTotal();
+let pending=false;
+const observer=new MutationObserver(()=>{if(pending)return;pending=true;setTimeout(()=>{pending=false;capture();getTotal()},60)});
+observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["class","page"]});
+const timer=setInterval(()=>{capture();getTotal()},200);
+window.__gbfPassiveCollector={stop:()=>{observer.disconnect();clearInterval(timer);delete window.__gbfPassiveCollector}};
+alert("GBF v1.5 recording: navigate inventory pages; run bookmark again to save. Previous v1.4 data retained.");
+}catch(e){alert("GBF v1.5: "+e.message)}})();
