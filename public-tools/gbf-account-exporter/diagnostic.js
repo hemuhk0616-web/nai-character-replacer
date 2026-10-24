@@ -1,38 +1,27 @@
-/* GBF v1.7: inventory auto-pagination with local JSON export */
+/* GBF v1.8: read-only, bounded inventory memory survey */
 (()=>{try{
-const KEY="gbf-auto-v1.6",LEGACY="gbf-passive-v1.5";
-const parse=s=>{try{return JSON.parse(s)}catch{return null}};
-const previous=parse(sessionStorage.getItem(KEY))||parse(sessionStorage.getItem(LEGACY))||{pages:{},weapons:{}};
-const data={pages:previous.pages||{},weapons:previous.weapons||{}};
-const num=x=>x==null||x===""?null:Number.isFinite(Number(x))?Number(x):null;
-const str=x=>x==null?null:String(x);
-const read=()=>{const v=window.Game?.view;return{page:Number(v?.page),items:(v?.listItemParams?.item||[]).map(item=>{const p=item?.param||{},m=item?.master||{};return{weapon_id:str(m.id),instance_id:str(p.id),image_id:str(p.image_id),level:num(p.level),attack:num(p.attack),hp:num(p.hp),bonus_attack:num(p.bonus_attack),bonus_hp:num(p.bonus_hp),skill_level:num(p.skill_level),evolution:num(p.evolution),phase:num(p.phase),rarity:num(m.rarity),is_locked:[true,1,"1"].includes(p.is_locked),is_used:[true,1,"1"].includes(item.is_used)}})}};
-const total=()=>Math.max(0,...[...document.querySelectorAll("li.prt-page-number[page]")].map(e=>Number(e.getAttribute("page"))).filter(Number.isInteger));
-const persist=()=>sessionStorage.setItem(KEY,JSON.stringify(data));
-const capture=r=>{if(!Number.isInteger(r.page)||r.page<1||!r.items.length)return false;const ids=r.items.map(x=>x.instance_id);if(ids.some(x=>!x))return false;data.pages[r.page]=ids.length;for(const item of r.items)data.weapons[item.instance_id]=item;persist();return true};
-const exportFile=status=>{const max=total(),visited=Object.keys(data.pages).map(Number).sort((a,b)=>a-b),missing=Array.from({length:max},(_,i)=>i+1).filter(p=>!data.pages[p]);const out={schema:"gbf-account-exporter/auto-v1.7",status,diagnostic:window.__gbfAutoDiagnostic||null,totalPages:max||null,visitedPages:visited,missingPages:missing,uniqueCount:Object.keys(data.weapons).length,pages:data.pages,weapons:Object.values(data.weapons)};const url=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=url;a.download="gbf-auto-v1.7.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);alert("GBF v1.6 "+status+": "+visited.length+"/"+max+" pages, "+out.uniqueCount+" weapons")};
-if(window.__gbfAutoCollector){window.__gbfAutoCollector.stop("manual_stop");return}
-const initial=read();if(!capture(initial))throw Error("Open weapon inventory and wait for items");
-const max=total();if(!max)throw Error("Page buttons not found");
-let active=true,timer=null,expected=null,oldFingerprint="",attempt=0;
-const fingerprint=r=>r.items.map(x=>x.instance_id).join(",");
-const diag={startedAtPage:initial.page,events:[],lastAction:null};
-const log=(action,extra={})=>{diag.lastAction={action,...extra};diag.events.push(diag.lastAction);if(diag.events.length>80)diag.events.shift()};
-const finish=status=>{if(!active)return;active=false;clearTimeout(timer);window.__gbfAutoIndicator?.remove();delete window.__gbfAutoIndicator;delete window.__gbfAutoCollector;window.__gbfAutoDiagnostic=diag;exportFile(status)};
-window.__gbfAutoCollector={stop:finish};
-const wait=()=>{if(!active)return;const r=read();if(r.page===expected&&r.items.length&&fingerprint(r)!==oldFingerprint){capture(r);log("arrived",{page:r.page});expected=null;attempt=0;timer=setTimeout(step,400);return}if(++attempt>=40){log("timeout",{expected,observed:r.page,items:r.items.length});finish("timeout_at_page_"+expected);return}timer=setTimeout(wait,250)};
-const step=()=>{if(!active)return;const r=read();if(window.__gbfAutoIndicator)window.__gbfAutoIndicator.textContent="GBF 자동 수집 · "+Object.keys(data.pages).length+"/"+max+"페이지 · 현재 "+r.page;
-if(expected!==null)return;if(r.items.length)capture(r);
-const missing=Array.from({length:max},(_,i)=>i+1).filter(p=>!data.pages[p]);
-if(!missing.length){finish("complete");return}
-const target=missing[0];
-if(r.page===target){log("already_at_target",{target});timer=setTimeout(step,500);return}
-const direction=target>r.page?1:-1,next=r.page+direction;
-const visible=[...document.querySelectorAll("li.prt-page-number[page]")].map(e=>({page:e.getAttribute("page"),disable:e.getAttribute("disable"),className:e.className}));
-const candidates=[...document.querySelectorAll('li.prt-page-number[page="'+next+'"]')];
-const button=candidates.find(e=>e.getAttribute("disable")!=="true")||candidates[0];
-if(!button){log("button_missing",{current:r.page,next,target,visible});finish("button_unavailable_"+next);return}
-expected=next;oldFingerprint=fingerprint(r);attempt=0;log("click",{current:r.page,next,target,disable:button.getAttribute("disable"),className:button.className,visible});button.click();timer=setTimeout(wait,250)};
-const indicator=document.createElement("div");indicator.id="gbf-auto-status";indicator.textContent="GBF 자동 수집 준비 중 · "+Object.keys(data.pages).length+"/"+max+"페이지";Object.assign(indicator.style,{position:"fixed",right:"10px",bottom:"12px",zIndex:"2147483647",background:"#15202bcc",color:"#fff",padding:"8px 12px",borderRadius:"9px",fontSize:"12px",pointerEvents:"none"});document.body.append(indicator);window.__gbfAutoIndicator=indicator;
-timer=setTimeout(step,300);
-}catch(e){alert("GBF v1.6: "+e.message)}})();
+const root=window.Game;
+if(!root||!root.view)throw Error("Open weapon inventory first");
+const safe=(obj,key)=>{try{const d=Object.getOwnPropertyDescriptor(obj,key);return d&&"value" in d?d.value:undefined}catch{return undefined}};
+const isObj=x=>x!==null&&typeof x==="object";
+const describe=x=>{if(Array.isArray(x))return "array";if(isObj(x))return "object";return typeof x};
+const current=Array.isArray(root.view?.listItemParams?.item)?root.view.listItemParams.item:[];
+const output={schema:"gbf-account-exporter/memory-diagnostic-v1.8",location:location.hostname,viewPage:root.view.page??null,currentPageItems:current.length,scan:{maxDepth:5,maxNodes:2200,maxArraySamples:12},candidates:[],stats:{nodesVisited:0,arraysSeen:0,objectsSeen:0,limitsReached:false},notes:["No page clicks, network requests or inventory mutations.","Only structural metadata is exported; no session tokens or raw game records."]};
+const sensitive=/token|secret|auth|cookie|session|password|credential|csrf|key|sign|header|mail|user|account|profile|billing/i;
+const relevant=/item|weapon|equip|inventory|list|data|param|master|cache|collection|storage|model|view|bag|possess|archive/i;
+const seen=new WeakSet(),queue=[{value:root,path:"Game",depth:0}];
+while(queue.length&&output.stats.nodesVisited<output.scan.maxNodes){
+const {value,path,depth}=queue.shift();if(!isObj(value)||seen.has(value))continue;seen.add(value);output.stats.nodesVisited++;
+if(Array.isArray(value)){output.stats.arraysSeen++;const sample=value.slice(0,Math.min(3,value.length));const shape=sample.map(v=>isObj(v)?Object.keys(v).filter(k=>!sensitive.test(k)).slice(0,14):describe(v));if(value.length>=15||relevant.test(path))output.candidates.push({path,type:"array",length:value.length,sampleShape:shape});if(depth<output.scan.maxDepth)for(let i=0;i<Math.min(value.length,output.scan.maxArraySamples);i++)queue.push({value:safe(value,String(i)),path:path+"["+i+"]",depth:depth+1});continue}
+output.stats.objectsSeen++;
+let keys=[];try{keys=Object.keys(value)}catch{continue}
+if(relevant.test(path)&&keys.length>=15)output.candidates.push({path,type:"object",keyCount:keys.length,keyNames:keys.filter(k=>!sensitive.test(k)).slice(0,18)});
+if(depth>=output.scan.maxDepth)continue;
+for(const key of keys.slice(0,180)){if(sensitive.test(key))continue;const v=safe(value,key);if(!isObj(v))continue;if(depth===0&&!relevant.test(key))continue;queue.push({value:v,path:path+"."+key,depth:depth+1})}
+}
+output.stats.limitsReached=queue.length>0;
+output.candidates.sort((a,b)=>(b.length||b.keyCount||0)-(a.length||a.keyCount||0));
+output.candidates=output.candidates.slice(0,120);
+const url=URL.createObjectURL(new Blob([JSON.stringify(output,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=url;a.download="gbf-memory-diagnostic-v1.8.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+alert("GBF v1.8 scan complete: "+output.stats.nodesVisited+" objects, "+output.candidates.length+" candidates. JSON saved.");
+}catch(e){alert("GBF v1.8 diagnostic: "+e.message)}})();
