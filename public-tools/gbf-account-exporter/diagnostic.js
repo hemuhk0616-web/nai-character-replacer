@@ -1,17 +1,23 @@
-/* GBF v2.0: read-only extraction of memory-cached weapons */
+/* GBF v2.1: read-only inventory loader structure probe; no page clicks or requests */
 (()=>{try{
-const v=window.Game?.view;if(!v)throw Error("Open weapon inventory");
-const safe=(o,k)=>{try{const d=Object.getOwnPropertyDescriptor(o,k);return d&&"value"in d?d.value:undefined}catch{return undefined}};
-const num=x=>x==null||x===""?null:Number.isFinite(Number(x))?Number(x):null;
-const str=x=>x==null?null:String(x);
-const getId=x=>{const p=x&&safe(x,"param");const id=p&&safe(p,"id");return id==null?null:String(id)};
-const sources=[],byId=new Map();
-const add=(path,arr)=>{if(!Array.isArray(arr))return;let valid=0;for(const item of arr){const id=getId(item);if(!id)continue;valid++;if(!byId.has(id)){const p=item.param||{},m=item.master||{};byId.set(id,{weapon_id:str(m.id),instance_id:id,image_id:str(p.image_id),level:num(p.level),attack:num(p.attack),hp:num(p.hp),bonus_attack:num(p.bonus_attack),bonus_hp:num(p.bonus_hp),skill_level:num(p.skill_level),evolution:num(p.evolution),phase:num(p.phase),rarity:num(m.rarity),is_locked:[true,1,"1"].includes(p.is_locked),is_used:[true,1,"1"].includes(item.is_used)})}}if(valid)sources.push({path,items:arr.length,validIds:valid})};
-add("Game.view.listItemParams.item",v.listItemParams?.item);add("Game.view.change_list",v.change_list);
-const ls=v._listeners;if(ls&&typeof ls==="object")for(const [k,l]of Object.entries(ls))add("Game.view._listeners."+k+".attributes.list",l?.attributes?.list);
-const models=[["Game.view.content_model",v.content_model],["Game.view.container_list_model",v.container_list_model],["Game.view.listArtifactView",v.listArtifactView]];
-for(const [path,m]of models)if(m&&typeof m==="object")for(const k of Object.keys(m).slice(0,80)){const a=safe(m,k);add(path+"."+k,a);if(a&&typeof a==="object"&&!Array.isArray(a))for(const kk of Object.keys(a).slice(0,70))add(path+"."+k+"."+kk,safe(a,kk))}
-const out={schema:"gbf-account-exporter/memory-extract-v2.0",currentPage:v.page??null,uniqueCount:byId.size,sourceCount:sources.length,sources,weapons:[...byId.values()],notes:["Memory-only snapshot. May include stale cached records.","Do not treat as a complete current inventory without validation."]};
-const url=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=url;a.download="gbf-memory-extract-v2.0.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
-alert("GBF v2.0: "+out.uniqueCount+" unique cached weapons exported. This may not be the full inventory.");
-}catch(e){alert("GBF v2.0: "+e.message)}})();
+const G=window.Game,v=G?.view;if(!v)throw Error("Open the GBF weapon inventory first");
+const seen=new WeakSet(),nodes=[],candidates=[],MAX_NODES=1600,MAX_DEPTH=4;
+const own=(o)=>{try{return Object.getOwnPropertyDescriptors(o)}catch{return {}}};
+const type=x=>Array.isArray(x)?"array":x===null?"null":typeof x;
+const allowed=(k)=>!/token|secret|auth|cookie|session|password|email|phone|address|csrf|nonce|credential|user.?id|uid|access.?key|payment/i.test(k);
+const summarize=(o,path,depth)=>{if(!o||typeof o!=="object"&&typeof o!=="function"||seen.has(o)||nodes.length>=MAX_NODES||depth>MAX_DEPTH)return;seen.add(o);
+const ds=own(o),keys=Object.keys(ds),methods=[],arrays=[],children=[];
+for(const k of keys.slice(0,160)){if(!allowed(k))continue;const d=ds[k];if(!("value"in d))continue;const x=d.value,t=type(x);
+if(t==="function"){methods.push(k);if(/page|list|item|weapon|fetch|load|request|change|render|update|next|prev|pagination|model|sync|sort|filter/i.test(k))candidates.push({path:path+"."+k,kind:"method",arity:x.length})}
+else if(t==="array"){arrays.push({key:k,length:x.length});if(/item|weapon|list|page|cache|data|model/i.test(k))candidates.push({path:path+"."+k,kind:"array",length:x.length});if(depth<MAX_DEPTH&&x.length){for(let i=0;i<Math.min(x.length,2);i++)children.push([k+"["+i+"]",x[i]])}}
+else if((t==="object")&&x){children.push([k,x])}
+}
+nodes.push({path,type:type(o),keyCount:keys.length,methods:methods.slice(0,90),arrays:arrays.slice(0,70),hasGetters:keys.some(k=>!("value"in ds[k]))});
+if(depth<MAX_DEPTH)for(const [k,x]of children.slice(0,42))summarize(x,path+"."+k,depth+1)
+};
+for(const [path,obj]of [["Game.view",v],["Game.model",G?.model],["Game.data",G?.data],["Game.models",G?.models],["Game.api",G?.api]])summarize(obj,path,0);
+const safeList=v?.listItemParams?.item;
+const out={schema:"gbf-account-exporter/loader-probe-v2.1",page:Number(v.page)||null,visibleItemCount:Array.isArray(safeList)?safeList.length:null,visitedNodes:nodes.length,candidates:candidates.slice(0,400),nodes,limitations:["Names, array lengths and function arities only; no function calls, page clicks or network requests.","No credentials, URL values, or item records exported.","Inspection may miss non-enumerable prototype methods or lazy data."]};
+const url=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=url;a.download="gbf-loader-probe-v2.1.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+alert("GBF v2.1 done: "+nodes.length+" nodes, "+candidates.length+" candidates. Upload gbf-loader-probe-v2.1.json");
+}catch(e){alert("GBF v2.1 error: "+e.message)}})();
