@@ -16,10 +16,10 @@ const initial=read();if(!capture(initial))throw Error("Open weapon inventory and
 const max=total();if(!max)throw Error("Page buttons not found");
 let active=true,timer=null,expected=null,oldFingerprint="",attempt=0,completed=0;
 const fingerprint=r=>r.items.map(x=>x.instance_id).join(",");
-const finish=status=>{if(!active)return;active=false;clearTimeout(timer);delete window.__gbfAutoCollector;exportFile(status)};
+const finish=status=>{if(!active)return;active=false;clearTimeout(timer);window.__gbfAutoIndicator?.remove();delete window.__gbfAutoIndicator;delete window.__gbfAutoCollector;exportFile(status)};
 window.__gbfAutoCollector={stop:finish};
 const wait=()=>{if(!active)return;const r=read();if(r.page===expected&&r.items.length&&fingerprint(r)!==oldFingerprint){capture(r);completed++;expected=null;attempt=0;timer=setTimeout(step,350);return}if(++attempt>=40){finish("timeout_at_page_"+expected);return}timer=setTimeout(wait,250)};
-const step=()=>{if(!active)return;const r=read();if(expected!==null)return;if(r.items.length)capture(r);const missing=Array.from({length:max},(_,i)=>i+1).filter(p=>!data.pages[p]);if(!missing.length){finish("complete");return}const next=missing[0],button=document.querySelector('li.prt-page-number.btn-page-number[page="'+next+'"][disable="false"]');if(!button){finish("button_unavailable_"+next);return}expected=next;oldFingerprint=fingerprint(r);attempt=0;button.click();timer=setTimeout(wait,250)};
-alert("GBF v1.6 auto collection started: "+Object.keys(data.pages).length+"/"+max+" pages. Keep inventory open. Run bookmark again to stop and save.");
+const step=()=>{if(!active)return;const r=read();if(window.__gbfAutoIndicator)window.__gbfAutoIndicator.textContent="GBF 자동 수집 · "+Object.keys(data.pages).length+"/"+max+"페이지";if(expected!==null)return;if(r.items.length)capture(r);const missing=Array.from({length:max},(_,i)=>i+1).filter(p=>!data.pages[p]);if(!missing.length){finish("complete");return}const next=missing[0],button=document.querySelector('li.prt-page-number.btn-page-number[page="'+next+'"][disable="false"]');if(!button){finish("button_unavailable_"+next);return}expected=next;oldFingerprint=fingerprint(r);attempt=0;button.click();timer=setTimeout(wait,250)};
+const indicator=document.createElement("div");indicator.id="gbf-auto-status";indicator.textContent="GBF 자동 수집 준비 중 · "+Object.keys(data.pages).length+"/"+max+"페이지";Object.assign(indicator.style,{position:"fixed",right:"10px",bottom:"12px",zIndex:"2147483647",background:"#15202bcc",color:"#fff",padding:"8px 12px",borderRadius:"9px",fontSize:"12px",pointerEvents:"none"});document.body.append(indicator);window.__gbfAutoIndicator=indicator;
 timer=setTimeout(step,300);
 }catch(e){alert("GBF v1.6: "+e.message)}})();
