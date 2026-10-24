@@ -1,13 +1,13 @@
-/* GBF v2.7: bounded 10-page collection, no inventory mutation */
+/* GBF v3.0: bounded full-inventory collection, no inventory mutation */
 (()=>{try{
 const v=window.Game?.view;if(!v||v.selected_item!=="weapon")throw Error("Open weapon inventory");
-const start=Number(v.page),max=10;if(!Number.isInteger(start)||start<1)throw Error("Invalid page");
-if(!confirm("GBF v2.7: collect up to "+max+" pages starting at "+start+"? Saves partial results on timeout."))return;
+const start=Number(v.page),max=45;if(!Number.isInteger(start)||start<1)throw Error("Invalid page");
+if(!confirm("GBF v3.0: collect up to "+max+" pages starting at "+start+"? Stops on a short page; saves partial results on timeout."))return;
 const pages=[],seen=new Set();let pending=false,finished=false,timer=null;
 const snap=()=>{const arr=v.change_list;if(!Array.isArray(arr))throw Error("No list array");return arr.map(x=>{const p=x?.param||{},m=x?.master||{};return{instance_id:p.id==null?null:String(p.id),weapon_id:m.id==null?null:String(m.id),image_id:p.image_id??null,level:p.level??null,skill_level:p.skill_level??null,evolution:p.evolution??null,phase:p.phase??null,attack:p.attack??null,hp:p.hp??null,rarity:m.rarity??null,bonus_attack:p.bonus_attack??null,bonus_hp:p.bonus_hp??null,is_locked:p.is_locked??null,is_used:x.is_used??null}})};
-const download=(error)=>{if(finished)return;finished=true;v.off("xhrEnd",onEnd);if(timer)clearTimeout(timer);const out={schema:"gbf-account-exporter/batch-v2.7",startPage:start,requestedPages:max,completedPages:pages.map(p=>p.page),uniqueCount:seen.size,error:error||null,pages};const u=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=u;a.download="gbf-batch-v2.7-pages-"+start+"-"+(pages.at(-1)?.page??start)+".json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);alert("GBF v2.7 saved: "+pages.length+" pages, "+seen.size+" unique IDs"+(error?" (partial: "+error+")":""))};
+const download=(error)=>{if(finished)return;finished=true;v.off("xhrEnd",onEnd);if(timer)clearTimeout(timer);const out={schema:"gbf-account-exporter/batch-v3.0",startPage:start,requestedPages:max,completedPages:pages.map(p=>p.page),uniqueCount:seen.size,error:error||null,pages};const u=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=u;a.download="gbf-batch-v3.0-pages-"+start+"-"+(pages.at(-1)?.page??start)+".json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);alert("GBF v3.0 saved: "+pages.length+" pages, "+seen.size+" unique IDs"+(error?" (partial: "+error+")":""))};
 const record=(page)=>{const items=snap();if(!items.length)throw Error("Empty page "+page);for(const x of items){if(x.instance_id)seen.add(x.instance_id)}pages.push({page,items})};
 const load=()=>{if(finished)return;const page=start+pages.length;v.page=String(page);pending=true;timer=setTimeout(()=>download("Timeout at page "+page),15000);try{v.setListModel()}catch(e){download("Load error: "+e.message)}};
 const onEnd=()=>{if(finished||!pending)return;pending=false;if(timer){clearTimeout(timer);timer=null}const page=start+pages.length;if(Number(v.page)!==page){download("Page mismatch");return}try{record(page)}catch(e){download(e.message);return}if(pages.length>=max||pages.at(-1).items.length<20){download(null);return}setTimeout(load,650)};
 v.on("xhrEnd",onEnd);load();
-}catch(e){alert("GBF v2.7: "+e.message)}})();
+}catch(e){alert("GBF v3.0: "+e.message)}})();
