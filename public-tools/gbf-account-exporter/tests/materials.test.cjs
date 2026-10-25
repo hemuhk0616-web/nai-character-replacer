@@ -25,6 +25,17 @@ test('invalid envelope and unknown leaves cannot be reported as complete',()=>{
   const out=api.extract([{new_id:'2',name:'未対応形式',amount:'8'}],'treasures');
   assert.equal(out.complete,false);assert.equal(out.unparsed_paths.length,1);
 });
+test('Backbone numeric-key object lists preserve all rows and nested groups',()=>{
+ const api=parser();
+ const out=api.extract({'0':{item_id:'1',name:'碧空の結晶',amount:'123'},'1':{item_id:'2',name:'素材',amount:'0'}},'treasures');
+ assert.equal(out.items.length,2);assert.equal(out.items[0].quantity,123);assert.equal(out.items[1].quantity,0);assert.equal(out.complete,true);
+ const nested=api.extract({'0':[{item_id:'1',name:'回復',number:'5'}],'1':{'0':[{item_id:'1',name:'育成',number:'2'}]}},'items');
+ assert.equal(nested.items.length,2);assert.notEqual(nested.items[0].key,nested.items[1].key);
+});
+test('failed envelope retains sanitized raw response for diagnosis',async()=>{
+ const e=run({badPayload:true});await e.api.done;
+ assert.equal(e.api.report.sections.treasures.raw.error,'invalid');
+});
 test('material export sanitizes private fields while preserving material name and quantity',()=>{
   const api=parser();assert.ok(api);
   const out=api.extract([{item_id:'12',item_kind_id:10,name:'素材',amount:'8',secret_token:'NEVER_EXPORT',user_id:'PRIVATE',api_key:'SENSITIVE_KEY',duplicate_key:'SENSITIVE_KEY',access_key:'SENSITIVE_KEY',comment:'説明'}],'treasures');

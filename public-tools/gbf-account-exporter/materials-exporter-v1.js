@@ -1,4 +1,4 @@
-/* GBF Materials Exporter v1.0.0. Three read-only lists observed in the public
+/* GBF Materials Exporter v1.0.1. Three read-only lists observed in the public
  * game client: assets/js/view/item/index.js, fetched 2026-10-25.
  * Does not use, exchange, claim, sell or recycle anything. No external upload.
  */
@@ -10,14 +10,14 @@
     'use strict';
     const KEY='__GBF_MATERIALS_EXPORTER_V1__',STORE='gbf-materials-exporter-v1-checkpoint';
     if(win[KEY]?.running||win[KEY]?.requiresReload){win[KEY].show();return;}
-    const report={schema:'gbf-materials-exporter/v1',collector_version:'1.0.0',started_at:new Date().toISOString(),finished_at:null,status:'running',complete:false,error:null,sections:{},warnings:[],scope:{treasures:true,recovery_and_upgrade_items:true,tickets_and_other_items:true,giftbox:false,memorials:false,skypieces:false,currencies:false}};
+    const report={schema:'gbf-materials-exporter/v1',collector_version:'1.0.1',started_at:new Date().toISOString(),finished_at:null,status:'running',complete:false,error:null,sections:{},warnings:[],scope:{treasures:true,recovery_and_upgrade_items:true,tickets_and_other_items:true,giftbox:false,memorials:false,skypieces:false,currencies:false}};
     let stopped=false,pending=false,abort=null,saved=false;
     const host=document.createElement('div');host.id='gbf-materials-exporter-v1';document.getElementById(host.id)?.remove();
     Object.assign(host.style,{position:'fixed',left:'8px',right:'8px',bottom:'12px',zIndex:'2147483647',maxWidth:'430px',margin:'auto'});
     const shadow=host.attachShadow({mode:'open'}),style=document.createElement('style');
     style.textContent='*{box-sizing:border-box}section{font:13px/1.6 system-ui,sans-serif;background:#142530;color:#f2f5f7;border:1px solid #6b9f93;border-radius:15px;padding:14px;box-shadow:0 5px 35px #0008}h2{font-size:15px;margin:0 0 6px}p{margin:5px 0;overflow-wrap:anywhere}small{color:#b9cbd1}.buttons{display:flex;gap:7px;margin-top:10px}button{flex:1;font:inherit;background:#285247;color:#e6fff3;border:1px solid #659b8a;border-radius:9px;min-height:44px;padding:8px}button:disabled{opacity:.5}';
     const panel=document.createElement('section'),title=document.createElement('h2'),status=document.createElement('p'),info=document.createElement('p'),note=document.createElement('small'),buttons=document.createElement('div');
-    title.textContent='🍙 재료 별도 수집 · V1.0';note.textContent='트레저·회복·강화·티켓 목록 조회 · 선물함·통화는 제외';buttons.className='buttons';
+    title.textContent='🍙 재료 별도 수집 · V1.0.1';note.textContent='트레저·회복·강화·티켓 목록 조회 · 선물함·통화는 제외';buttons.className='buttons';
     const stopButton=document.createElement('button'),saveButton=document.createElement('button'),closeButton=document.createElement('button');
     stopButton.textContent='중단';saveButton.textContent='JSON 저장';closeButton.textContent='닫기';buttons.append(stopButton,saveButton,closeButton);panel.append(title,status,info,note,buttons);shadow.append(style,panel);document.body.appendChild(host);
     const api={report,running:true,requiresReload:false,done:null,show(){host.style.display='block'},stop(){stopped=true;abort?.(Error('사용자가 중단했습니다'));},save};win[KEY]=api;
@@ -51,7 +51,7 @@
         for(const[key,label,route]of routes){
           active(view);const section={status:'collecting',endpoint:route,items:[],error:null};report.sections[key]=section;update(label+' 조회 중');
           try{
-            const payload=await read(Model,route,view),result=helpers.extract(payload,key);Object.assign(section,result);
+            const payload=await read(Model,route,view);section.raw=helpers.sanitize(payload);const result=helpers.extract(payload,key);Object.assign(section,result);
             section.status=result.complete?'collected':'partial';section.coverage='native_list_response';
             if(!result.complete)section.error='일부 응답 항목의 구조를 해석하지 못했습니다';
             checkpoint();
@@ -79,11 +79,13 @@
   }
   function count(value){if(typeof value==='number')return Number.isSafeInteger(value)&&value>=0?value:null;if(typeof value!=='string'||!/^\d+$/.test(value))return null;const n=Number(value);return Number.isSafeInteger(n)?n:null;}
   function extract(payload,section){
-    if(!Array.isArray(payload))throw Error('기본 재료 응답이 목록 배열이 아닙니다');
+    const indexed=v=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length>0&&Object.keys(v).every(k=>/^\d+$/.test(k));
+    if(!Array.isArray(payload)&&!indexed(payload))throw Error('기본 재료 응답의 목록 구조를 확인하지 못했습니다');
     const items=[],unparsed_paths=[];
     function walk(value,path,depth){
       if(depth>12){unparsed_paths.push(path);return;}
       if(Array.isArray(value)){value.forEach((v,i)=>walk(v,path.concat(i),depth+1));return;}
+      if(indexed(value)&&value.item_id==null){Object.keys(value).sort((a,b)=>Number(a)-Number(b)).forEach(k=>walk(value[k],path.concat(k),depth+1));return;}
       if(value===null)return;
       if(!value||typeof value!=='object'||value.item_id==null){unparsed_paths.push(path);return;}
       const id=String(value.item_id);if(!/^\d+$/.test(id)){unparsed_paths.push(path);return;}
@@ -96,5 +98,5 @@
     walk(payload,[],0);
     return {items,complete:unparsed_paths.length===0,unparsed_paths,quantity_unknown_records:items.filter(v=>v.quantity===null).length,name_unknown_records:items.filter(v=>!v.name).length,raw:sanitize(payload)};
   }
-  return {extract};
+  return {extract,sanitize};
 });
