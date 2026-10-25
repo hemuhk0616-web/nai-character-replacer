@@ -78,3 +78,11 @@ test('cancel during pending request does not load the next section',async()=>{
 test('bad payload is not an empty success',async()=>{
  const e=run({badPayload:true});assert.ok(e.api);await e.api.done;assert.equal(e.api.report.status,'partial');assert.ok(e.api.report.sections.treasures.error);
 });
+
+test('live treasure number field supplies owned quantity and point-only item stays distinct',()=>{
+ const api=parser();const out=api.extract({'0':{item_id:'2',name:'柔らかい羽',number:'817'}},'treasures');
+ assert.equal(out.items[0].quantity,817);assert.equal(out.complete,true);
+ const pts=api.extract([{item_id:'3',name:'名工の鍛冶台',item_kind_id:75,total_point:8895}],'items');
+ assert.equal(pts.items[0].quantity,null);assert.equal(pts.items[0].total_point,8895);
+ assert.equal(pts.quantity_unknown_records,0);assert.equal(pts.point_only_records,1);
+});

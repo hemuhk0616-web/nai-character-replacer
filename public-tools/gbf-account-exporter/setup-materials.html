@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#13232e"><title>GBF 재료 수집 V1</title>
 <style>:root{color-scheme:dark;font-family:system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#101b24;color:#edf4f4;line-height:1.7}main{max-width:580px;margin:auto;padding:26px 18px}small,a{color:#9dd5bf}h1{font-size:25px;line-height:1.4;margin:8px 0 20px}h2{font-size:17px;margin-top:28px}p,li{font-size:14px;color:#bacbd4}button{font:inherit;border-radius:12px;min-height:52px;background:#9dd5bf;color:#14352c;border:0;width:100%;padding:13px 18px;cursor:pointer}aside{padding:13px 15px;background:#1d303c;border-radius:12px;margin:20px 0}aside p{margin:0}ol{padding-left:22px}li{padding:6px 0}textarea{width:100%;height:130px;background:#15232d;color:#d3e8e3;border:1px solid #405661;border-radius:9px;padding:12px;font:12px monospace;overflow-wrap:anywhere}details{margin-top:16px}summary{padding:10px 0;cursor:pointer}#feedback{min-height:26px;color:#9dd5bf}</style></head>
-<body><main><small>GBF MATERIALS EXPORTER · V1.0.1</small><h1>재료 이름과 보유량을<br>파일 하나로.</h1>
+<body><main><small>GBF MATERIALS EXPORTER · V1.0.2</small><h1>재료 이름과 보유량을<br>파일 하나로.</h1>
 <p>기존 통합 수집과 별도로 실행하는 북마크입니다. 트레저·회복 및 강화 아이템·티켓과 기타 아이템의 기본 목록을 차례로 조회합니다.</p>
 <aside><p><b>새 재료 조회는 실게임 검증 전입니다.</b><br>게임 코드에 있는 조회 경로와 모의 응답으로 검사했습니다. 첫 실행 JSON으로 실제 이름·수량 구조와 수집 범위를 확인해야 합니다. 재료를 사용하거나 교환하지 않습니다.</p></aside>
 <h2>최초 한 번 · 별도 북마크 등록</h2><ol><li>아래 버튼으로 실행 주소를 복사합니다.</li><li>Quetta에 북마크를 만들고 이름을 <b>GBF 재료 수집</b>으로 정합니다.</li><li>북마크 주소를 복사한 실행 주소로 바꿉니다.</li></ol>
@@ -13,7 +13,7 @@
 <p>수집 파일은 외부로 자동 전송하지 않습니다. <a href="setup-v4.html">무기·소환석·캐릭터 통합 수집 안내</a></p>
 </main><script>
 const source='https://hemuhk0616-web.github.io/nai-character-replacer/public-tools/gbf-account-exporter/materials-exporter-v1.js';
-const code="javascript:(()=>{const s=document.createElement('script');s.src='"+source+"?v=1.0.1&t='+Date.now();s.onerror=()=>alert('재료 수집 파일 로드 실패');document.head.appendChild(s)})();";
+const code="javascript:(()=>{const s=document.createElement('script');s.src='"+source+"?v=1.0.2&t='+Date.now();s.onerror=()=>alert('재료 수집 파일 로드 실패');document.head.appendChild(s)})();";
 document.getElementById('code').value=code;
 document.getElementById('copy').onclick=async()=>{try{await navigator.clipboard.writeText(code);document.getElementById('feedback').textContent='복사했어요! 별도 북마크 주소에 붙여넣어 주세요.';}catch{const t=document.getElementById('code');t.parentElement.open=true;t.focus();t.select();document.getElementById('feedback').textContent='아래 주소를 길게 눌러 전체 복사해 주세요.';}};
 </script></body></html>

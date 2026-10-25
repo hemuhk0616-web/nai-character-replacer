@@ -1,4 +1,4 @@
-/* GBF Materials Exporter v1.0.1. Three read-only lists observed in the public
+/* GBF Materials Exporter v1.0.2. Three read-only lists observed in the public
  * game client: assets/js/view/item/index.js, fetched 2026-10-25.
  * Does not use, exchange, claim, sell or recycle anything. No external upload.
  */
@@ -10,14 +10,14 @@
     'use strict';
     const KEY='__GBF_MATERIALS_EXPORTER_V1__',STORE='gbf-materials-exporter-v1-checkpoint';
     if(win[KEY]?.running||win[KEY]?.requiresReload){win[KEY].show();return;}
-    const report={schema:'gbf-materials-exporter/v1',collector_version:'1.0.1',started_at:new Date().toISOString(),finished_at:null,status:'running',complete:false,error:null,sections:{},warnings:[],scope:{treasures:true,recovery_and_upgrade_items:true,tickets_and_other_items:true,giftbox:false,memorials:false,skypieces:false,currencies:false}};
+    const report={schema:'gbf-materials-exporter/v1',collector_version:'1.0.2',started_at:new Date().toISOString(),finished_at:null,status:'running',complete:false,error:null,sections:{},warnings:[],scope:{treasures:true,recovery_and_upgrade_items:true,tickets_and_other_items:true,giftbox:false,memorials:false,skypieces:false,currencies:false}};
     let stopped=false,pending=false,abort=null,saved=false;
     const host=document.createElement('div');host.id='gbf-materials-exporter-v1';document.getElementById(host.id)?.remove();
     Object.assign(host.style,{position:'fixed',left:'8px',right:'8px',bottom:'12px',zIndex:'2147483647',maxWidth:'430px',margin:'auto'});
     const shadow=host.attachShadow({mode:'open'}),style=document.createElement('style');
     style.textContent='*{box-sizing:border-box}section{font:13px/1.6 system-ui,sans-serif;background:#142530;color:#f2f5f7;border:1px solid #6b9f93;border-radius:15px;padding:14px;box-shadow:0 5px 35px #0008}h2{font-size:15px;margin:0 0 6px}p{margin:5px 0;overflow-wrap:anywhere}small{color:#b9cbd1}.buttons{display:flex;gap:7px;margin-top:10px}button{flex:1;font:inherit;background:#285247;color:#e6fff3;border:1px solid #659b8a;border-radius:9px;min-height:44px;padding:8px}button:disabled{opacity:.5}';
     const panel=document.createElement('section'),title=document.createElement('h2'),status=document.createElement('p'),info=document.createElement('p'),note=document.createElement('small'),buttons=document.createElement('div');
-    title.textContent='🍙 재료 별도 수집 · V1.0.1';note.textContent='트레저·회복·강화·티켓 목록 조회 · 선물함·통화는 제외';buttons.className='buttons';
+    title.textContent='🍙 재료 별도 수집 · V1.0.2';note.textContent='트레저·회복·강화·티켓 목록 조회 · 선물함·통화는 제외';buttons.className='buttons';
     const stopButton=document.createElement('button'),saveButton=document.createElement('button'),closeButton=document.createElement('button');
     stopButton.textContent='중단';saveButton.textContent='JSON 저장';closeButton.textContent='닫기';buttons.append(stopButton,saveButton,closeButton);panel.append(title,status,info,note,buttons);shadow.append(style,panel);document.body.appendChild(host);
     const api={report,running:true,requiresReload:false,done:null,show(){host.style.display='block'},stop(){stopped=true;abort?.(Error('사용자가 중단했습니다'));},save};win[KEY]=api;
@@ -90,13 +90,14 @@
       if(!value||typeof value!=='object'||value.item_id==null){unparsed_paths.push(path);return;}
       const id=String(value.item_id);if(!/^\d+$/.test(id)){unparsed_paths.push(path);return;}
       const kind=value.item_kind_id??value.item_kind??(section==='treasures'?10:null);
-      const quantity=section==='treasures'?count(value.amount):count(value.number??value.amount);
+      const quantity=section==='treasures'?count(value.amount??value.number):count(value.number??value.amount);
       const name=typeof value.name==='string'?value.name:null;
       const key=section+':'+path.join('.')+':'+String(kind??'unknown')+':'+id;
-      items.push({key,item_id:id,item_kind_id:kind===null?null:String(kind),name,name_language:'game',quantity,quantity_raw:section==='treasures'?(value.amount??null):(value.number??value.amount??null),display_num:value.num??null,total_point:value.total_point??null,group_path:path.slice(0,-1),source_index:path.at(-1),source_section:section,location:'items',raw:sanitize(value)});
+      items.push({key,item_id:id,item_kind_id:kind===null?null:String(kind),name,name_language:'game',quantity,quantity_raw:section==='treasures'?(value.amount??value.number??null):(value.number??value.amount??null),display_num:value.num??null,total_point:value.total_point??null,group_path:path.slice(0,-1),source_index:path.at(-1),source_section:section,location:'items',raw:sanitize(value)});
     }
     walk(payload,[],0);
-    return {items,complete:unparsed_paths.length===0,unparsed_paths,quantity_unknown_records:items.filter(v=>v.quantity===null).length,name_unknown_records:items.filter(v=>!v.name).length,raw:sanitize(payload)};
+    const unknown=items.filter(v=>v.quantity===null&&count(v.total_point)===null).length;
+    return {items,complete:unparsed_paths.length===0&&unknown===0&&items.every(v=>v.name),unparsed_paths,quantity_unknown_records:unknown,point_only_records:items.filter(v=>v.quantity===null&&count(v.total_point)!==null).length,name_unknown_records:items.filter(v=>!v.name).length,raw:sanitize(payload)};
   }
   return {extract,sanitize};
 });
