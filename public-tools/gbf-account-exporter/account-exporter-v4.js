@@ -5,17 +5,17 @@
  */
 (()=>{
 'use strict';
-const GLOBAL='__GBF_ACCOUNT_EXPORTER_V4__', VERSION='4.3.1', CHECKPOINT='gbf-account-exporter-v4-checkpoint';
+const GLOBAL='__GBF_ACCOUNT_EXPORTER_V4__', VERSION='4.4.0', CHECKPOINT='gbf-account-exporter-v4-checkpoint';
 if(window[GLOBAL]?.running||window[GLOBAL]?.requiresReload){window[GLOBAL].show();return;}
 document.getElementById('gbf-account-exporter-v4')?.remove();
 const section=()=>({status:'not_collected',scope:'unknown',items:[],pages:[],warnings:[],error:null});
-const report={schema:'gbf-account-exporter/account-v4.3',collector_version:VERSION,started_at:new Date().toISOString(),finished_at:null,status:'running',complete:false,error:null,sections:{weapons:section(),summons:section(),characters:section(),jobs:section(),weapon_storage:section(),summon_storage:section(),equipped_parties:section(),giftbox_weapons:section(),giftbox_summons:section()},storage_catalogs:{},diagnostics:{},filter_notice:'실행 전 무기·소환석·캐릭터 목록의 필터를 해제해 주세요. 필터가 남아 있으면 일부만 수집됩니다.',warnings:[]};
+const report={schema:'gbf-account-exporter/account-v4.4',excluded_scopes:['all_saved_parties','materials_separate_export'],collector_version:VERSION,started_at:new Date().toISOString(),finished_at:null,status:'running',complete:false,error:null,sections:{weapons:section(),summons:section(),characters:section(),jobs:section(),weapon_storage:section(),summon_storage:section(),equipped_parties:section(),giftbox_weapons:section(),giftbox_summons:section()},storage_catalogs:{},diagnostics:{},filter_notice:'실행 전 무기·소환석·캐릭터 목록의 필터를 해제해 주세요. 필터가 남아 있으면 일부만 수집됩니다.',warnings:[]};
 let cancelled=false,pending=false,abortWait=null,checkpointOK=true,downloaded=false;
 const host=document.createElement('div');host.id='gbf-account-exporter-v4';
 Object.assign(host.style,{position:'fixed',left:'8px',right:'8px',bottom:'12px',zIndex:'2147483647',maxWidth:'430px',margin:'auto'});
 const shadow=host.attachShadow({mode:'open'}),style=document.createElement('style');
 style.textContent=':host{color-scheme:dark}*{box-sizing:border-box}section{font:13px/1.55 system-ui,sans-serif;background:#142530;color:#f2f5f7;border:1px solid #6b9f93;border-radius:15px;padding:14px;box-shadow:0 5px 35px #0008}h2{font-size:15px;margin:0 0 7px}p{margin:4px 0;overflow-wrap:anywhere}small{color:#a8bac5;font-size:11px}.buttons{display:flex;gap:7px;margin-top:10px}button{flex:1;font:inherit;background:#285247;color:#e6fff3;border:1px solid #659b8a;border-radius:9px;min-height:44px;padding:8px}button:disabled{opacity:.5}button:focus-visible{outline:2px solid white;outline-offset:2px}details{margin-top:7px;font-size:11px}summary{cursor:pointer;min-height:30px}';
-const panel=document.createElement('section'),title=document.createElement('h2'),status=document.createElement('p'),detail=document.createElement('p'),note=document.createElement('small'),buttons=document.createElement('div');buttons.className='buttons';title.textContent='🍙 계정 통합 수집 · V4.3.1 검증판';note.textContent='직업·현재 편성 연결 검증 중 · 전체 저장 편성은 아직 미수집입니다.';
+const panel=document.createElement('section'),title=document.createElement('h2'),status=document.createElement('p'),detail=document.createElement('p'),note=document.createElement('small'),buttons=document.createElement('div');buttons.className='buttons';title.textContent='🍙 계정 통합 수집 · V4.4 이름 연결판';note.textContent='이름·언어·출처를 함께 저장 · 전체 저장 편성은 요청에 따라 제외합니다.';
 const stopButton=document.createElement('button'),saveButton=document.createElement('button'),closeButton=document.createElement('button');stopButton.textContent='중단';saveButton.textContent='JSON 저장';closeButton.textContent='닫기';buttons.append(stopButton,saveButton,closeButton);const filterNote=document.createElement('p');filterNote.textContent=report.filter_notice;filterNote.style.color='#ffe1a3';filterNote.style.fontSize='12px';panel.append(title,filterNote,status,detail,note,buttons);shadow.append(style,panel);document.body.appendChild(host);
 const api={running:true,report,done:null,stop(){cancelled=true;abortWait?.(new Error('사용자가 중단했습니다'));update('중단 중 · 현재 결과 보존');},show(){host.style.display='block';},save:saveReport};window[GLOBAL]=api;
 stopButton.onclick=api.stop;saveButton.onclick=()=>saveReport(false);closeButton.onclick=()=>{if(api.running){update('수집 중입니다. 멈추려면 중단을 눌러 주세요.');return;}host.style.display='none';};
@@ -83,15 +83,42 @@ async function collectJobs(view,models,deckPriority){const out=report.sections.j
 function slotRefs(collection){if(!collection||typeof collection!=='object')return[];return Object.entries(collection).filter(([slot])=>/^\d+$/.test(slot)).map(([slot,row])=>({slot,instance_id:row?.param?.id==null||Number(row.param.id)===0?null:String(row.param.id),master_id:row?.master?.id==null?null:String(row.master.id)}));}
 async function collectCurrentParty(view,models){const out=report.sections.equipped_parties;out.status='collecting';out.scope='current_party_only';out.all_saved_parties_collected=false;update('현재 선택된 편성 조회 중');const deck=new models.Deck();if(resolveModelURL(deck)!==Game.baseUri+'party/deck')throw Error('현재 편성 조회 경로 불일치');const data=await waitOwnedModel(view,deck,()=>deck.fetch({ignoreError:true}),{stage:'현재 편성',validate:p=>p.deck!==null&&typeof p.deck==='object'&&p.deck.pc!==null&&typeof p.deck.pc==='object'});const raw=data.deck,budget={nodes:0,truncated:false,maxNodes:20000,maxDepth:10};out.items.push({priority:raw.priority??null,name:raw.name??null,job_id:raw.pc.job?.master?.id==null?null:String(raw.pc.job.master.id),characters:slotRefs(raw.npc),weapons:slotRefs(raw.pc.weapons),summons:slotRefs(raw.pc.summons),sub_summons:slotRefs(raw.pc.sub_summons),raw:safeCopy(data,0,new WeakSet(),budget),raw_truncated:budget.truncated});out.status='collected';out.warnings.push('현재 선택된 편성 1개입니다. 전체 저장 편성을 수집한 결과가 아닙니다.');checkpoint();return raw.priority;}
 async function collectPartyCatalogue(view,models){update('저장 편성 목록 구조 확인 중');report.party_catalogue={status:'collecting',queried_group_priority:1,all_saved_parties_collected:false};const url=Game.baseUri+'deckcombination/deck_combination_list/1',catalogue=new(models.Data.extend({urlRoot:url}))();const p=await waitOwnedModel(view,catalogue,()=>catalogue.fetch({ignoreError:true}),{stage:'저장 편성 목록',validate:r=>r.group!==null&&typeof r.group==='object'&&r.deck_list!==null&&typeof r.deck_list==='object'}),b={nodes:0,truncated:false,maxNodes:12000,maxDepth:9};report.party_catalogue={status:'collected',queried_group_priority:1,groups:safeCopy(p.group,0,new WeakSet(),b),deck_list:safeCopy(p.deck_list,0,new WeakSet(),b),raw_truncated:b.truncated,all_saved_parties_collected:false};checkpoint();}
-async function collectJobsAndParty(view){const modules=await loadPartyModels();if(!modules||!Object.values(modules).every(value=>typeof value==='function')){for(const key of ['jobs','equipped_parties']){report.sections[key].status='unsupported';report.sections[key].error='직업·편성 기본 조회 모듈 미확인';}return;}try{const priority=await collectCurrentParty(view,modules);if(!/^[1-9]\d*$/.test(String(priority))){report.sections.jobs.status='unsupported';report.sections.jobs.error='현재 편성의 실제 번호를 확인하지 못했습니다';return;}await collectJobs(view,modules,priority);try{await collectPartyCatalogue(view,modules);}catch(e){if(pending||cancelled)throw e;report.party_catalogue={status:'partial',error:String(e.message),all_saved_parties_collected:false};report.warnings.push('저장 편성 목록 조회 실패 · 현재 편성과 직업 결과는 유지합니다.');}}catch(e){for(const key of ['jobs','equipped_parties'])if(report.sections[key].status==='collecting'){report.sections[key].status='partial';report.sections[key].error=String(e.message);}throw e;}}
+async function collectJobsAndParty(view){const modules=await loadPartyModels();if(!modules||!Object.values(modules).every(value=>typeof value==='function')){for(const key of ['jobs','equipped_parties']){report.sections[key].status='unsupported';report.sections[key].error='직업·편성 기본 조회 모듈 미확인';}return;}try{const priority=await collectCurrentParty(view,modules);if(!/^[1-9]\d*$/.test(String(priority))){report.sections.jobs.status='unsupported';report.sections.jobs.error='현재 편성의 실제 번호를 확인하지 못했습니다';return;}await collectJobs(view,modules,priority);report.party_catalogue={status:'skipped_by_user',all_saved_parties_collected:false};}catch(e){for(const key of ['jobs','equipped_parties'])if(report.sections[key].status==='collecting'){report.sections[key].status='partial';report.sections[key].error=String(e.message);}throw e;}}
+
+
+async function enrichIdentities(){
+  try{
+    update('무기·소환석·캐릭터 이름 연결 중');
+    if(typeof window.GBFIdentityCatalogue?.enrichReport!=='function')await new Promise((resolve,reject)=>{
+      let ended=false;const script=document.createElement('script');
+      const finish=(error)=>{if(ended)return;ended=true;clearTimeout(timer);script.onload=null;script.onerror=null;error?reject(error):resolve();};
+      const timer=setTimeout(()=>finish(Error('이름 사전 로드 시간 초과')),15000);
+      script.src='https://hemuhk0616-web.github.io/nai-character-replacer/public-tools/gbf-account-exporter/identity-catalogue.js?v=2026-10-25.1';
+      script.crossOrigin='anonymous';script.referrerPolicy='no-referrer';
+      script.onload=()=>typeof window.GBFIdentityCatalogue?.enrichReport==='function'?finish():finish(Error('이름 사전 구조 미확인'));
+      script.onerror=()=>finish(Error('이름 사전 파일 로드 실패'));document.head.appendChild(script);
+    });
+    window.GBFIdentityCatalogue.enrichReport(report);
+  }catch(e){
+    let native=0,total=0;for(const[key,section]of Object.entries(report.sections)){
+      if(key==='equipped_parties')continue;for(const row of section.items||[]){
+        total++;const name=row.raw?.master?.name??row.raw?.item_name??row.raw?.name??row.name;
+        row.name=typeof name==='string'&&name.trim()?name:null;row.identity_status=row.name?'game_response':'unresolved';if(row.name)native++;
+      }
+    }
+    report.identity_coverage={status:'unavailable',reason:String(e.message),total,named:native,unresolved:total-native};
+    report.warnings.push('이름 사전 연결 실패 · 수집한 원본 데이터는 보존했습니다: '+String(e.message));
+  }
+}
 
 api.done=(async()=>{let view,original;try{
 if(!/^(?:gbf\.game\.mbga\.jp|game\.granbluefantasy\.jp)$/.test(location.hostname)){report.status='blocked';throw Error('그랑블루 게임 화면에서 실행해 주세요');}
+if(window.__GBF_MATERIALS_EXPORTER_V1__?.running||window.__GBF_MATERIALS_EXPORTER_V1__?.requiresReload){report.status='blocked';throw Error('재료 수집 종료 후 실행해 주세요. 중단했다면 새로고침해 주세요.');}
 view=window.Game?.view;if(!view||!['weapon','summon','npc'].includes(view.selected_item)||typeof view.setListModel!=='function'||typeof view.on!=='function'||typeof view.off!=='function'||typeof view.listenToOnce!=='function'||typeof view.item_render!=='function'||!Function.prototype.toString.call(view.setListModel).includes('listenToOnce')){report.status='blocked';throw Error('무기·소환석·캐릭터 보유 목록 화면에서 실행해 주세요');}
 report.context={origin:location.origin,inventory_view:true,scope:'native_inventory_view_current_filters'};report.diagnostics=inspect(view);original={selected_item:view.selected_item,page:view.page,page_num:view.page_num,active_tab:view.active_tab,sort:view.sort};
 for(const[kind,key]of [['weapon','weapons'],['summon','summons'],['npc','characters']]){assertActive(view);await collect(view,kind,key);await delay();}
 await collectStorageCatalogues(view);const collected=await collectAdditionalItems(view);if(!collected)view=await discoverStoragePage(view);await collectJobsAndParty(view);assertActive(view);if(typeof view.setListModel!=='function'||typeof view.listenToOnce!=='function')throw Error('돌아온 목록 화면 구조 미확인');update('처음 열었던 목록으로 복원 중');await waitNative(view,()=>{Object.assign(view,original);view.setListModel();});report.restored_original_view=true;report.status='partial';update('계정 조회 종료 · 직업·편성 수집 상태를 파일에서 확인하세요');
 }catch(e){report.error=String(e.message);if(report.status!=='blocked')report.status=cancelled?'cancelled':'partial';report.warnings.push(String(e.message));report.restored_original_view=false;if(pending)report.warnings.push('진행 중 응답이 있을 수 있어 추가 요청과 화면 복원을 하지 않았습니다.');update(String(e.message));}
-finally{report.finished_at=new Date().toISOString();report.complete=false;summarizeCollected();report.warnings.push('전체 저장 편성은 아직 미수집입니다. 직업·현재 편성과 각 목록의 수집 상태를 확인하세요. 전체 계정 수집 완료 파일은 아닙니다.');api.running=false;api.requiresReload=pending;if(pending)note.textContent='응답 지연·중단 후에는 게임을 새로고침한 뒤 재실행해 주세요.';stopButton.disabled=true;checkpoint();if(!checkpointOK)report.warnings.push('임시 저장 실패 · JSON 다운로드 필요');if(report.status!=='blocked')saveReport(true);}
+finally{if(report.status!=='blocked')await enrichIdentities();report.finished_at=new Date().toISOString();report.complete=false;summarizeCollected();report.warnings.push('전체 저장 편성은 사용자 요청에 따라 제외했습니다. 재료는 별도 수집 북마크를 사용합니다. 목록별 필터 범위와 이름 연결률을 확인하세요.');api.running=false;api.requiresReload=pending;if(pending)note.textContent='응답 지연·중단 후에는 게임을 새로고침한 뒤 재실행해 주세요.';stopButton.disabled=true;checkpoint();if(!checkpointOK)report.warnings.push('임시 저장 실패 · JSON 다운로드 필요');if(report.status!=='blocked')saveReport(true);}
 return report;})();
 })();
